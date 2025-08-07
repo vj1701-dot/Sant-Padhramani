@@ -5,14 +5,21 @@ const cookieParser = require('cookie-parser');
 const rateLimit = require('express-rate-limit');
 const path = require('path');
 require('dotenv').config();
+const crypto = require('crypto');
+
+// Auto-generate JWT secret if not provided
+if (!process.env.JWT_SECRET) {
+    process.env.JWT_SECRET = crypto.randomBytes(64).toString('hex');
+    console.log('Auto-generated JWT_SECRET for this session');
+}
 
 // Import routes
 const authRoutes = require('./routes/auth');
 const apiRoutes = require('./routes/api');
 
 // Import services for initialization
-const googleAuthConfig = require('./config/googleAuth');
-const { initializeSheet } = require('./services/sheetsService');
+const GoogleSheetsService = require('./services/googleSheetsService');
+const UserManagementService = require('./services/userManagementService');
 
 const app = express();
 const PORT = process.env.PORT || 8080;
@@ -23,9 +30,10 @@ app.use(helmet({
         directives: {
             defaultSrc: ["'self'"],
             styleSrc: ["'self'", "'unsafe-inline'", "https://cdn.tailwindcss.com"],
-            scriptSrc: ["'self'", "'unsafe-inline'", "https://unpkg.com", "https://cdn.tailwindcss.com"],
+            scriptSrcAttr: ["'unsafe-inline'"],
             imgSrc: ["'self'", "data:", "https:"],
-            connectSrc: ["'self'"],
+            connectSrc: ["'self'", "https://cdn.tailwindcss.com", "https://unpkg.com", "https://t.me", "https://maps.google.com", "https://telegram.org"],
+            scriptSrc: ["'self'", "'unsafe-inline'", "https://unpkg.com", "https://cdn.tailwindcss.com", "https://telegram.org"],
             fontSrc: ["'self'", "https:"],
             objectSrc: ["'none'"],
             mediaSrc: ["'self'"],
@@ -103,17 +111,24 @@ app.use((error, req, res, next) => {
 // Initialize services and start server
 async function startServer() {
     try {
-        console.log('Initializing Google authentication...');
-        await googleAuthConfig.initialize();
+        console.log('Initializing services...');
         
-        console.log('Initializing Google Sheet...');
-        await initializeSheet();
+        // Initialize Google Sheets service
+        const sheetsService = new GoogleSheetsService();
+        await sheetsService.initialize();
+        global.sheetsService = sheetsService;
+        
+        // Initialize User Management service
+        const userService = new UserManagementService();
+        await userService.initialize();
+        global.userService = userService;
         
         console.log('Starting server...');
         app.listen(PORT, '0.0.0.0', () => {
             console.log(`Sant Padharamani Server running on port ${PORT}`);
             console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
             console.log(`Access the dashboard at: http://localhost:${PORT}`);
+            console.log(`Login page: http://localhost:${PORT}/auth/login-page`);
         });
     } catch (error) {
         console.error('Failed to start server:', error);

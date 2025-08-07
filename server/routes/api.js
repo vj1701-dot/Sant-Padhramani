@@ -1,20 +1,56 @@
 const express = require('express');
 const { requireAuth } = require('../middleware/auth');
-const {
-    getAllPadharamanis,
-    getUpcomingPadharamanis,
-    getArchivedPadharamanis,
-    addPadharamani,
-    updatePadharamani
-} = require('../services/sheetsService');
-const {
-    syncPadharamaniToCalendar,
-    cancelPadharamaniEvent
-} = require('../services/calendarService');
+// Use global sheets service initialized in server/index.js
+const getSheetsService = () => {
+    if (!global.sheetsService) {
+        throw new Error('Sheets service not initialized');
+    }
+    return global.sheetsService;
+};
 
 const router = express.Router();
 
-// Apply authentication middleware to all API routes
+// Phone validation utility
+const validatePhone = (phone) => {
+    if (!phone) return false;
+    const cleanPhone = phone.replace(/\D/g, ''); // Remove non-digits
+    return cleanPhone.length === 10;
+};
+
+// Public route for scheduling (no auth required)
+router.post('/padharamanis/schedule', async (req, res) => {
+    try {
+        const padharamaniData = req.body;
+
+        // Validate required fields for scheduling
+        const requiredFields = ['name', 'phone', 'address', 'city'];
+        const missingFields = requiredFields.filter(field => !padharamaniData[field]);
+
+        if (missingFields.length > 0) {
+            return res.status(400).json({ 
+                error: 'Missing required fields', 
+                missingFields 
+            });
+        }
+
+        // Validate phone number
+        if (!validatePhone(padharamaniData.phone)) {
+            return res.status(400).json({ 
+                error: 'Phone number must be exactly 10 digits' 
+            });
+        }
+
+        // Add to requests sheet
+        const result = await getSheetsService().schedulePadharamani(padharamaniData);
+
+        res.status(201).json(result);
+    } catch (error) {
+        console.error('Error scheduling padharamani:', error.message);
+        res.status(500).json({ error: 'Failed to schedule padharamani' });
+    }
+});
+
+// Apply authentication middleware to all other API routes
 router.use(requireAuth);
 
 /**
@@ -23,7 +59,7 @@ router.use(requireAuth);
  */
 router.get('/padharamanis/upcoming', async (req, res) => {
     try {
-        const padharamanis = await getUpcomingPadharamanis();
+        const padharamanis = await getSheetsService().getUpcomingPadharamanis();
         res.json(padharamanis);
     } catch (error) {
         console.error('Error fetching upcoming padharamanis:', error.message);
@@ -37,11 +73,25 @@ router.get('/padharamanis/upcoming', async (req, res) => {
  */
 router.get('/padharamanis/archived', async (req, res) => {
     try {
-        const padharamanis = await getArchivedPadharamanis();
+        const padharamanis = await getSheetsService().getArchivedPadharamanis();
         res.json(padharamanis);
     } catch (error) {
         console.error('Error fetching archived padharamanis:', error.message);
         res.status(500).json({ error: 'Failed to fetch archived padharamanis' });
+    }
+});
+
+/**
+ * GET /api/padharamanis/scheduled
+ * Get scheduled padharamani requests (incomplete entries)
+ */
+router.get('/padharamanis/scheduled', async (req, res) => {
+    try {
+        const scheduled = await getSheetsService().getScheduledPadharamanis();
+        res.json(scheduled);
+    } catch (error) {
+        console.error('Error fetching padharamani requests:', error.message);
+        res.status(500).json({ error: 'Failed to fetch padharamani requests' });
     }
 });
 
@@ -78,17 +128,28 @@ router.post('/padharamanis', async (req, res) => {
             });
         }
 
-        // Add padharamani to Google Sheet
-        const result = await addPadharamani(padharamaniData);
-
-        // Sync to Google Calendar
-        try {
-            await syncPadharamaniToCalendar(padharamaniData);
-            console.log('Padharamani synced to calendar successfully');
-        } catch (calendarError) {
-            console.error('Calendar sync failed:', calendarError.message);
-            // Don't fail the request if calendar sync fails
+        // Validate phone number
+        if (!validatePhone(padharamaniData.phone)) {
+            return res.status(400).json({ 
+                error: 'Phone number must be exactly 10 digits' 
+            });
         }
+
+        // Validate volunteer phone numbers if provided
+        if (padharamaniData.volunteerNumber && !validatePhone(padharamaniData.volunteerNumber)) {
+            return res.status(400).json({ 
+                error: 'Transport volunteer phone number must be exactly 10 digits' 
+            });
+        }
+
+        if (padharamaniData.zoneCoordinatorPhone && !validatePhone(padharamaniData.zoneCoordinatorPhone)) {
+            return res.status(400).json({ 
+                error: 'Zone coordinator phone number must be exactly 10 digits' 
+            });
+        }
+
+        // Add padharamani to assigned sheet
+        const result = await getSheetsService().addPadharamani(padharamaniData);
 
         res.status(201).json(result);
     } catch (error) {
@@ -97,47 +158,6 @@ router.post('/padharamanis', async (req, res) => {
     }
 });
 
-/**
- * POST /api/padharamanis/schedule
- * Schedule a padharamani (simplified form without full details)
- */
-router.post('/padharamanis/schedule', async (req, res) => {
-    try {
-        const padharamaniData = req.body;
-
-        // Validate required fields for scheduling
-        const requiredFields = ['name', 'phone', 'address', 'city'];
-        const missingFields = requiredFields.filter(field => !padharamaniData[field]);
-
-        if (missingFields.length > 0) {
-            return res.status(400).json({ 
-                error: 'Missing required fields', 
-                missingFields 
-            });
-        }
-
-        // Add default values for scheduling
-        const scheduleData = {
-            ...padharamaniData,
-            date: '', // Will be filled later
-            beginningTime: '',
-            endingTime: '',
-            transportVolunteer: '',
-            volunteerNumber: '',
-            zoneCoordinator: '',
-            zoneCoordinatorPhone: '',
-            status: 'Scheduled'
-        };
-
-        // Add to Google Sheet
-        const result = await addPadharamani(scheduleData);
-
-        res.status(201).json(result);
-    } catch (error) {
-        console.error('Error scheduling padharamani:', error.message);
-        res.status(500).json({ error: 'Failed to schedule padharamani' });
-    }
-});
 
 /**
  * PUT /api/padharamanis/:id
@@ -148,24 +168,8 @@ router.put('/padharamanis/:id', async (req, res) => {
         const padharamaniId = req.params.id;
         const padharamaniData = req.body;
 
-        // Update padharamani in Google Sheet
-        const result = await updatePadharamani(padharamaniId, padharamaniData);
-
-        // Handle calendar sync
-        try {
-            if (padharamaniData.status === 'Canceled') {
-                // Cancel calendar event
-                await cancelPadharamaniEvent(padharamaniData);
-                console.log('Padharamani canceled in calendar');
-            } else {
-                // Update calendar event
-                await syncPadharamaniToCalendar(padharamaniData);
-                console.log('Padharamani updated in calendar');
-            }
-        } catch (calendarError) {
-            console.error('Calendar sync failed:', calendarError.message);
-            // Don't fail the request if calendar sync fails
-        }
+        // Update padharamani in Google Sheets
+        const result = await getSheetsService().updatePadharamani(padharamaniId, padharamaniData);
 
         res.json(result);
     } catch (error) {
