@@ -74,9 +74,7 @@ temp/
 
 # Deployment files
 cloudbuild.yaml
-.dockerignore
 docker-compose*.yml
-Dockerfile*
 
 # Bot files
 bot/

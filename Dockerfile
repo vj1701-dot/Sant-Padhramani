@@ -1,35 +1,26 @@
-# Multi-stage Dockerfile for Sant Padharamani Dashboard
-# Combines frontend and backend into a single container
-
-FROM node:18-alpine AS base
+# Use Node.js 18 LTS as base image
+FROM node:18-slim
 
 # Set working directory
 WORKDIR /app
 
-# Copy package.json and package-lock.json (if available)
+# Copy package files
 COPY package*.json ./
 
 # Install dependencies
-RUN npm ci --only=production && npm cache clean --force
+RUN npm ci --only=production
 
-# Copy source code
-COPY server/ ./server/
-COPY client/ ./client/
+# Copy application code
+COPY . .
 
-# Create non-root user for security
-RUN addgroup -g 1001 -S nodejs && \
-    adduser -S nodejs -u 1001
+# Create data directory for local storage
+RUN mkdir -p server/data
 
-# Change ownership of the app directory to nodejs user
-RUN chown -R nodejs:nodejs /app
-USER nodejs
-
-# Expose port
+# Expose port (Cloud Run will set PORT environment variable)
 EXPOSE 8080
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD node -e "require('http').get('http://localhost:8080/health', (res) => { process.exit(res.statusCode === 200 ? 0 : 1) }).on('error', () => process.exit(1))"
+# Set production environment
+ENV NODE_ENV=production
 
 # Start the application
-CMD ["node", "server/index.js"]
+CMD ["npm", "start"]
