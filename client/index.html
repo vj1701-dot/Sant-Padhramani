@@ -1,0 +1,1078 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sant Padharamani - Dashboard</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- React and ReactDOM -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    
+    <!-- Babel Standalone for JSX compilation -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <!-- Custom Tailwind Configuration -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: {
+                            50: '#fff7ed',
+                            100: '#ffedd5',
+                            500: '#f97316',
+                            600: '#ea580c',
+                            700: '#c2410c',
+                        },
+                        secondary: {
+                            50: '#f0f9ff',
+                            500: '#0ea5e9',
+                            600: '#0284c7',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <style>
+        .gradient-bg {
+            background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);
+        }
+        .card-shadow {
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+        .card-shadow:hover {
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <div id="root"></div>
+
+    <!-- React Components -->
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+
+        // API utility functions
+        const API_BASE = '/api';
+
+        const api = {
+            get: async (endpoint) => {
+                const response = await fetch(`${API_BASE}${endpoint}`, {
+                    credentials: 'include',
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
+                    }
+                });
+                if (!response.ok) {
+                    if (response.status === 401) {
+                        localStorage.removeItem('token');
+                        window.location.href = '/auth/login';
+                        return;
+                    }
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            },
+
+            post: async (endpoint, data) => {
+                const response = await fetch(`${API_BASE}${endpoint}`, {
+                    method: 'POST',
+                    credentials: 'include',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
+                    },
+                    body: JSON.stringify(data)
+                });
+                if (!response.ok) {
+                    if (response.status === 401) {
+                        localStorage.removeItem('token');
+                        window.location.href = '/auth/login';
+                        return;
+                    }
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            },
+
+            put: async (endpoint, data) => {
+                const response = await fetch(`${API_BASE}${endpoint}`, {
+                    method: 'PUT',
+                    credentials: 'include',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
+                    },
+                    body: JSON.stringify(data)
+                });
+                if (!response.ok) {
+                    if (response.status === 401) {
+                        localStorage.removeItem('token');
+                        window.location.href = '/auth/login';
+                        return;
+                    }
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            }
+        };
+
+        // Navigation Component
+        const Navigation = ({ currentPage, onPageChange, user, onLogout }) => (
+            <nav className="gradient-bg shadow-lg">
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                    <div className="flex justify-between h-16">
+                        <div className="flex items-center">
+                            <h1 className="text-white text-xl font-bold">Sant Padharamani</h1>
+                        </div>
+                        <div className="flex items-center space-x-4">
+                            <button
+                                onClick={() => onPageChange('upcoming')}
+                                className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                                    currentPage === 'upcoming' 
+                                        ? 'bg-white bg-opacity-20 text-white' 
+                                        : 'text-orange-100 hover:bg-white hover:bg-opacity-10 hover:text-white'
+                                }`}
+                            >
+                                Upcoming
+                            </button>
+                            <button
+                                onClick={() => onPageChange('archived')}
+                                className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                                    currentPage === 'archived' 
+                                        ? 'bg-white bg-opacity-20 text-white' 
+                                        : 'text-orange-100 hover:bg-white hover:bg-opacity-10 hover:text-white'
+                                }`}
+                            >
+                                Archived
+                            </button>
+                            <button
+                                onClick={() => onPageChange('schedule')}
+                                className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                                    currentPage === 'schedule' 
+                                        ? 'bg-white bg-opacity-20 text-white' 
+                                        : 'text-orange-100 hover:bg-white hover:bg-opacity-10 hover:text-white'
+                                }`}
+                            >
+                                Schedule
+                            </button>
+                            <button
+                                onClick={() => onPageChange('add')}
+                                className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                                    currentPage === 'add' 
+                                        ? 'bg-white bg-opacity-20 text-white' 
+                                        : 'text-orange-100 hover:bg-white hover:bg-opacity-10 hover:text-white'
+                                }`}
+                            >
+                                Add Padharamani
+                            </button>
+                            {user && (
+                                <div className="flex items-center space-x-2">
+                                    <span className="text-orange-100 text-sm">{user.name}</span>
+                                    <button
+                                        onClick={onLogout}
+                                        className="bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded-md text-sm font-medium transition-colors"
+                                    >
+                                        Logout
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            </nav>
+        );
+
+        // Padharamani Card Component
+        const PadharamaniCard = ({ padharamani, onEdit, onCancel, showActions = true }) => {
+            const formatTime = (time) => {
+                if (!time) return 'Not set';
+                return time.length === 5 ? time : time.substring(0, 5);
+            };
+
+            const formatDate = (dateStr) => {
+                const date = new Date(dateStr);
+                return date.toLocaleDateString('en-US', { 
+                    weekday: 'long', 
+                    year: 'numeric', 
+                    month: 'long', 
+                    day: 'numeric' 
+                });
+            };
+
+            const copyToClipboard = () => {
+                const text = `Padharamani Details:
+Date: ${formatDate(padharamani.date)}
+Time: ${formatTime(padharamani.beginningTime)} - ${formatTime(padharamani.endingTime)}
+Name: ${padharamani.name}
+Phone: ${padharamani.phone}
+Address: ${padharamani.address}, ${padharamani.city}
+Transport Volunteer: ${padharamani.transportVolunteer || 'Not assigned'}
+Volunteer's Number: ${padharamani.volunteerNumber || 'Not provided'}
+Zone Coordinator: ${padharamani.zoneCoordinator || 'Not assigned'}
+Coordinator Phone: ${padharamani.zoneCoordinatorPhone || 'Not provided'}
+Comments: ${padharamani.comments || 'None'}`;
+
+                navigator.clipboard.writeText(text).then(() => {
+                    alert('Details copied to clipboard!');
+                });
+            };
+
+            return (
+                <div className={`bg-white rounded-lg card-shadow p-6 mb-4 transition-all ${
+                    padharamani.status === 'Canceled' ? 'opacity-60 bg-red-50' : ''
+                }`}>
+                    {padharamani.status === 'Canceled' && (
+                        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-2 rounded mb-4">
+                            <strong>CANCELED</strong>
+                        </div>
+                    )}
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <h3 className="text-lg font-semibold text-gray-900 mb-2">{padharamani.name}</h3>
+                            <p className="text-sm text-gray-600 mb-1">
+                                <span className="font-medium">Date:</span> {formatDate(padharamani.date)}
+                            </p>
+                            <p className="text-sm text-gray-600 mb-1">
+                                <span className="font-medium">Time:</span> {formatTime(padharamani.beginningTime)} - {formatTime(padharamani.endingTime)}
+                            </p>
+                            <p className="text-sm text-gray-600 mb-1">
+                                <span className="font-medium">Phone:</span> 
+                                <a href={`tel:${padharamani.phone}`} className="text-blue-600 hover:underline ml-1">
+                                    {padharamani.phone}
+                                </a>
+                            </p>
+                            <p className="text-sm text-gray-600 mb-1">
+                                <span className="font-medium">Email:</span> {padharamani.email || 'Not provided'}
+                            </p>
+                        </div>
+                        
+                        <div>
+                            <p className="text-sm text-gray-600 mb-1">
+                                <span className="font-medium">Address:</span> {padharamani.address}
+                            </p>
+                            <p className="text-sm text-gray-600 mb-1">
+                                <span className="font-medium">City:</span> {padharamani.city}
+                            </p>
+                            <p className="text-sm text-gray-600 mb-1">
+                                <span className="font-medium">Transport Volunteer:</span> {padharamani.transportVolunteer || 'Not assigned'}
+                            </p>
+                            <p className="text-sm text-gray-600 mb-1">
+                                <span className="font-medium">Volunteer Phone:</span> 
+                                {padharamani.volunteerNumber ? (
+                                    <a href={`tel:${padharamani.volunteerNumber}`} className="text-blue-600 hover:underline ml-1">
+                                        {padharamani.volunteerNumber}
+                                    </a>
+                                ) : ' Not provided'}
+                            </p>
+                            <p className="text-sm text-gray-600 mb-1">
+                                <span className="font-medium">Zone Coordinator:</span> {padharamani.zoneCoordinator || 'Not assigned'}
+                            </p>
+                            <p className="text-sm text-gray-600 mb-1">
+                                <span className="font-medium">Coordinator Phone:</span>
+                                {padharamani.zoneCoordinatorPhone ? (
+                                    <a href={`tel:${padharamani.zoneCoordinatorPhone}`} className="text-blue-600 hover:underline ml-1">
+                                        {padharamani.zoneCoordinatorPhone}
+                                    </a>
+                                ) : ' Not provided'}
+                            </p>
+                        </div>
+                    </div>
+                    
+                    {padharamani.comments && (
+                        <div className="mt-4">
+                            <p className="text-sm text-gray-600">
+                                <span className="font-medium">Comments:</span> {padharamani.comments}
+                            </p>
+                        </div>
+                    )}
+                    
+                    {showActions && (
+                        <div className="mt-4 flex space-x-2">
+                            <button
+                                onClick={copyToClipboard}
+                                className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors"
+                            >
+                                Copy
+                            </button>
+                            {padharamani.status !== 'Canceled' && (
+                                <>
+                                    <button
+                                        onClick={() => onEdit(padharamani)}
+                                        className="bg-yellow-500 hover:bg-yellow-600 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors"
+                                    >
+                                        Edit
+                                    </button>
+                                    <button
+                                        onClick={() => onCancel(padharamani)}
+                                        className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors"
+                                    >
+                                        Cancel
+                                    </button>
+                                </>
+                            )}
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        // Form Input Component
+        const FormInput = ({ label, type = 'text', value, onChange, required = false, ...props }) => (
+            <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                    {label} {required && <span className="text-red-500">*</span>}
+                </label>
+                <input
+                    type={type}
+                    value={value}
+                    onChange={(e) => onChange(e.target.value)}
+                    required={required}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                    {...props}
+                />
+            </div>
+        );
+
+        // Upcoming Padharamani Page
+        const UpcomingPage = ({ onEdit, onCancel }) => {
+            const [padharamanis, setPadharamanis] = useState([]);
+            const [loading, setLoading] = useState(true);
+            const [error, setError] = useState(null);
+
+            useEffect(() => {
+                loadUpcomingPadharamanis();
+            }, []);
+
+            const loadUpcomingPadharamanis = async () => {
+                try {
+                    setLoading(true);
+                    const data = await api.get('/padharamanis/upcoming');
+                    setPadharamanis(data);
+                } catch (err) {
+                    setError('Failed to load upcoming padharamanis');
+                    console.error(err);
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            const groupByDate = (items) => {
+                const groups = {};
+                const today = new Date().toDateString();
+                const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000).toDateString();
+
+                items.forEach(item => {
+                    const itemDate = new Date(item.date).toDateString();
+                    let groupKey = itemDate;
+                    
+                    if (itemDate === today) {
+                        groupKey = 'Today';
+                    } else if (itemDate === tomorrow) {
+                        groupKey = 'Tomorrow';
+                    }
+                    
+                    if (!groups[groupKey]) {
+                        groups[groupKey] = [];
+                    }
+                    groups[groupKey].push(item);
+                });
+
+                return groups;
+            };
+
+            if (loading) {
+                return (
+                    <div className="flex justify-center items-center h-64">
+                        <div className="text-lg">Loading...</div>
+                    </div>
+                );
+            }
+
+            if (error) {
+                return (
+                    <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+                        {error}
+                    </div>
+                );
+            }
+
+            const groupedPadharamanis = groupByDate(padharamanis);
+
+            return (
+                <div>
+                    <h2 className="text-2xl font-bold text-gray-900 mb-6">Upcoming Padharamani</h2>
+                    
+                    {Object.keys(groupedPadharamanis).length === 0 ? (
+                        <div className="text-center py-8">
+                            <p className="text-gray-500 text-lg">No upcoming padharamani scheduled</p>
+                        </div>
+                    ) : (
+                        Object.entries(groupedPadharamanis).map(([date, items]) => (
+                            <div key={date} className="mb-8">
+                                <h3 className="text-xl font-semibold text-gray-800 mb-4 pb-2 border-b border-gray-200">
+                                    {date}
+                                </h3>
+                                {items.map((padharamani, index) => (
+                                    <PadharamaniCard
+                                        key={`${padharamani.date}-${index}`}
+                                        padharamani={padharamani}
+                                        onEdit={onEdit}
+                                        onCancel={onCancel}
+                                    />
+                                ))}
+                            </div>
+                        ))
+                    )}
+                </div>
+            );
+        };
+
+        // Archived Padharamani Page
+        const ArchivedPage = () => {
+            const [padharamanis, setPadharamanis] = useState([]);
+            const [loading, setLoading] = useState(true);
+            const [error, setError] = useState(null);
+            const [filters, setFilters] = useState({
+                startDate: '',
+                endDate: '',
+                name: '',
+                city: ''
+            });
+
+            useEffect(() => {
+                loadArchivedPadharamanis();
+            }, []);
+
+            const loadArchivedPadharamanis = async () => {
+                try {
+                    setLoading(true);
+                    const data = await api.get('/padharamanis/archived');
+                    setPadharamanis(data);
+                } catch (err) {
+                    setError('Failed to load archived padharamanis');
+                    console.error(err);
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            const filteredPadharamanis = padharamanis.filter(p => {
+                if (filters.startDate && p.date < filters.startDate) return false;
+                if (filters.endDate && p.date > filters.endDate) return false;
+                if (filters.name && !p.name.toLowerCase().includes(filters.name.toLowerCase())) return false;
+                if (filters.city && !p.city.toLowerCase().includes(filters.city.toLowerCase())) return false;
+                return true;
+            });
+
+            if (loading) {
+                return (
+                    <div className="flex justify-center items-center h-64">
+                        <div className="text-lg">Loading...</div>
+                    </div>
+                );
+            }
+
+            if (error) {
+                return (
+                    <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+                        {error}
+                    </div>
+                );
+            }
+
+            return (
+                <div>
+                    <h2 className="text-2xl font-bold text-gray-900 mb-6">Archived Padharamani</h2>
+                    
+                    {/* Filters */}
+                    <div className="bg-white rounded-lg card-shadow p-6 mb-6">
+                        <h3 className="text-lg font-semibold mb-4">Filters</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                            <FormInput
+                                label="Start Date"
+                                type="date"
+                                value={filters.startDate}
+                                onChange={(value) => setFilters({...filters, startDate: value})}
+                            />
+                            <FormInput
+                                label="End Date"
+                                type="date"
+                                value={filters.endDate}
+                                onChange={(value) => setFilters({...filters, endDate: value})}
+                            />
+                            <FormInput
+                                label="Name"
+                                value={filters.name}
+                                onChange={(value) => setFilters({...filters, name: value})}
+                                placeholder="Search by name"
+                            />
+                            <FormInput
+                                label="City"
+                                value={filters.city}
+                                onChange={(value) => setFilters({...filters, city: value})}
+                                placeholder="Search by city"
+                            />
+                        </div>
+                    </div>
+                    
+                    {filteredPadharamanis.length === 0 ? (
+                        <div className="text-center py-8">
+                            <p className="text-gray-500 text-lg">No archived padharamani found</p>
+                        </div>
+                    ) : (
+                        <div>
+                            {filteredPadharamanis.map((padharamani, index) => (
+                                <PadharamaniCard
+                                    key={`${padharamani.date}-${index}`}
+                                    padharamani={padharamani}
+                                    showActions={false}
+                                />
+                            ))}
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        // Schedule Padharamani Page (simplified form)
+        const SchedulePage = () => {
+            const [formData, setFormData] = useState({
+                name: '',
+                address: '',
+                city: '',
+                email: '',
+                phone: '',
+                comments: ''
+            });
+            const [loading, setLoading] = useState(false);
+            const [success, setSuccess] = useState(false);
+            const [error, setError] = useState(null);
+
+            const handleSubmit = async () => {
+                try {
+                    setLoading(true);
+                    setError(null);
+                    
+                    await api.post('/padharamanis/schedule', formData);
+                    
+                    setSuccess(true);
+                    setFormData({
+                        name: '',
+                        address: '',
+                        city: '',
+                        email: '',
+                        phone: '',
+                        comments: ''
+                    });
+                    
+                    setTimeout(() => setSuccess(false), 3000);
+                } catch (err) {
+                    setError('Failed to schedule padharamani');
+                    console.error(err);
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            return (
+                <div>
+                    <h2 className="text-2xl font-bold text-gray-900 mb-6">Schedule a Padharamani</h2>
+                    
+                    {success && (
+                        <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4">
+                            Padharamani scheduled successfully! Details will be filled in later.
+                        </div>
+                    )}
+                    
+                    {error && (
+                        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+                            {error}
+                        </div>
+                    )}
+                    
+                    <div className="bg-white rounded-lg card-shadow p-6">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <FormInput
+                                label="Name"
+                                value={formData.name}
+                                onChange={(value) => setFormData({...formData, name: value})}
+                                required
+                            />
+                            <FormInput
+                                label="Phone"
+                                type="tel"
+                                value={formData.phone}
+                                onChange={(value) => setFormData({...formData, phone: value})}
+                                required
+                            />
+                            <FormInput
+                                label="Address"
+                                value={formData.address}
+                                onChange={(value) => setFormData({...formData, address: value})}
+                                required
+                            />
+                            <FormInput
+                                label="City"
+                                value={formData.city}
+                                onChange={(value) => setFormData({...formData, city: value})}
+                                required
+                            />
+                            <FormInput
+                                label="Email"
+                                type="email"
+                                value={formData.email}
+                                onChange={(value) => setFormData({...formData, email: value})}
+                            />
+                            <div className="mb-4">
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    Comments
+                                </label>
+                                <textarea
+                                    value={formData.comments}
+                                    onChange={(e) => setFormData({...formData, comments: e.target.value})}
+                                    rows={3}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                                />
+                            </div>
+                        </div>
+                        
+                        <div className="mt-6">
+                            <button
+                                onClick={handleSubmit}
+                                disabled={loading || !formData.name || !formData.phone || !formData.address || !formData.city}
+                                className="bg-primary-500 hover:bg-primary-600 disabled:bg-gray-300 text-white px-6 py-2 rounded-md font-medium transition-colors"
+                            >
+                                {loading ? 'Scheduling...' : 'Schedule Padharamani'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        // Add Padharamani Page (full form)
+        const AddPage = () => {
+            const [formData, setFormData] = useState({
+                date: '',
+                beginningTime: '',
+                endingTime: '',
+                name: '',
+                address: '',
+                city: '',
+                email: '',
+                phone: '',
+                transportVolunteer: '',
+                volunteerNumber: '',
+                comments: '',
+                zoneCoordinator: '',
+                zoneCoordinatorPhone: ''
+            });
+            const [loading, setLoading] = useState(false);
+            const [success, setSuccess] = useState(false);
+            const [error, setError] = useState(null);
+
+            const handleSubmit = async () => {
+                try {
+                    setLoading(true);
+                    setError(null);
+                    
+                    await api.post('/padharamanis', formData);
+                    
+                    setSuccess(true);
+                    setFormData({
+                        date: '',
+                        beginningTime: '',
+                        endingTime: '',
+                        name: '',
+                        address: '',
+                        city: '',
+                        email: '',
+                        phone: '',
+                        transportVolunteer: '',
+                        volunteerNumber: '',
+                        comments: '',
+                        zoneCoordinator: '',
+                        zoneCoordinatorPhone: ''
+                    });
+                    
+                    setTimeout(() => setSuccess(false), 3000);
+                } catch (err) {
+                    setError('Failed to add padharamani');
+                    console.error(err);
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            return (
+                <div>
+                    <h2 className="text-2xl font-bold text-gray-900 mb-6">Add Padharamani</h2>
+                    
+                    {success && (
+                        <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4">
+                            Padharamani added successfully and synced to Google Calendar!
+                        </div>
+                    )}
+                    
+                    {error && (
+                        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+                            {error}
+                        </div>
+                    )}
+                    
+                    <div className="bg-white rounded-lg card-shadow p-6">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <FormInput
+                                label="Date"
+                                type="date"
+                                value={formData.date}
+                                onChange={(value) => setFormData({...formData, date: value})}
+                                required
+                            />
+                            <FormInput
+                                label="Beginning Time"
+                                type="time"
+                                value={formData.beginningTime}
+                                onChange={(value) => setFormData({...formData, beginningTime: value})}
+                                required
+                            />
+                            <FormInput
+                                label="Ending Time"
+                                type="time"
+                                value={formData.endingTime}
+                                onChange={(value) => setFormData({...formData, endingTime: value})}
+                                required
+                            />
+                            <FormInput
+                                label="Name"
+                                value={formData.name}
+                                onChange={(value) => setFormData({...formData, name: value})}
+                                required
+                            />
+                            <FormInput
+                                label="Address"
+                                value={formData.address}
+                                onChange={(value) => setFormData({...formData, address: value})}
+                                required
+                            />
+                            <FormInput
+                                label="City"
+                                value={formData.city}
+                                onChange={(value) => setFormData({...formData, city: value})}
+                                required
+                            />
+                            <FormInput
+                                label="Email"
+                                type="email"
+                                value={formData.email}
+                                onChange={(value) => setFormData({...formData, email: value})}
+                            />
+                            <FormInput
+                                label="Phone"
+                                type="tel"
+                                value={formData.phone}
+                                onChange={(value) => setFormData({...formData, phone: value})}
+                                required
+                            />
+                            <FormInput
+                                label="Transport Volunteer"
+                                value={formData.transportVolunteer}
+                                onChange={(value) => setFormData({...formData, transportVolunteer: value})}
+                            />
+                            <FormInput
+                                label="Volunteer's Phone"
+                                type="tel"
+                                value={formData.volunteerNumber}
+                                onChange={(value) => setFormData({...formData, volunteerNumber: value})}
+                            />
+                            <FormInput
+                                label="Zone Coordinator"
+                                value={formData.zoneCoordinator}
+                                onChange={(value) => setFormData({...formData, zoneCoordinator: value})}
+                            />
+                            <FormInput
+                                label="Zone Coordinator's Phone"
+                                type="tel"
+                                value={formData.zoneCoordinatorPhone}
+                                onChange={(value) => setFormData({...formData, zoneCoordinatorPhone: value})}
+                            />
+                        </div>
+                        
+                        <div className="mt-6">
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Comments
+                            </label>
+                            <textarea
+                                value={formData.comments}
+                                onChange={(e) => setFormData({...formData, comments: e.target.value})}
+                                rows={3}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                            />
+                        </div>
+                        
+                        <div className="mt-6">
+                            <button
+                                onClick={handleSubmit}
+                                disabled={loading || !formData.name || !formData.phone || !formData.address || !formData.city || !formData.date || !formData.beginningTime || !formData.endingTime}
+                                className="bg-primary-500 hover:bg-primary-600 disabled:bg-gray-300 text-white px-6 py-2 rounded-md font-medium transition-colors"
+                            >
+                                {loading ? 'Adding...' : 'Add Padharamani'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        // Edit Modal Component
+        const EditModal = ({ padharamani, onClose, onSave }) => {
+            const [formData, setFormData] = useState(padharamani || {});
+            const [loading, setLoading] = useState(false);
+
+            const handleSave = async () => {
+                try {
+                    setLoading(true);
+                    await onSave(formData);
+                    onClose();
+                } catch (err) {
+                    console.error('Failed to save:', err);
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            if (!padharamani) return null;
+
+            return (
+                <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full flex items-center justify-center p-4">
+                    <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-screen overflow-y-auto">
+                        <div className="p-6">
+                            <h3 className="text-lg font-semibold text-gray-900 mb-4">Edit Padharamani</h3>
+                            
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                                <FormInput
+                                    label="Date"
+                                    type="date"
+                                    value={formData.date || ''}
+                                    onChange={(value) => setFormData({...formData, date: value})}
+                                />
+                                <FormInput
+                                    label="Beginning Time"
+                                    type="time"
+                                    value={formData.beginningTime || ''}
+                                    onChange={(value) => setFormData({...formData, beginningTime: value})}
+                                />
+                                <FormInput
+                                    label="Ending Time"
+                                    type="time"
+                                    value={formData.endingTime || ''}
+                                    onChange={(value) => setFormData({...formData, endingTime: value})}
+                                />
+                                <FormInput
+                                    label="Name"
+                                    value={formData.name || ''}
+                                    onChange={(value) => setFormData({...formData, name: value})}
+                                />
+                                <FormInput
+                                    label="Address"
+                                    value={formData.address || ''}
+                                    onChange={(value) => setFormData({...formData, address: value})}
+                                />
+                                <FormInput
+                                    label="City"
+                                    value={formData.city || ''}
+                                    onChange={(value) => setFormData({...formData, city: value})}
+                                />
+                                <FormInput
+                                    label="Email"
+                                    type="email"
+                                    value={formData.email || ''}
+                                    onChange={(value) => setFormData({...formData, email: value})}
+                                />
+                                <FormInput
+                                    label="Phone"
+                                    type="tel"
+                                    value={formData.phone || ''}
+                                    onChange={(value) => setFormData({...formData, phone: value})}
+                                />
+                                <FormInput
+                                    label="Transport Volunteer"
+                                    value={formData.transportVolunteer || ''}
+                                    onChange={(value) => setFormData({...formData, transportVolunteer: value})}
+                                />
+                                <FormInput
+                                    label="Volunteer's Phone"
+                                    type="tel"
+                                    value={formData.volunteerNumber || ''}
+                                    onChange={(value) => setFormData({...formData, volunteerNumber: value})}
+                                />
+                                <FormInput
+                                    label="Zone Coordinator"
+                                    value={formData.zoneCoordinator || ''}
+                                    onChange={(value) => setFormData({...formData, zoneCoordinator: value})}
+                                />
+                                <FormInput
+                                    label="Zone Coordinator's Phone"
+                                    type="tel"
+                                    value={formData.zoneCoordinatorPhone || ''}
+                                    onChange={(value) => setFormData({...formData, zoneCoordinatorPhone: value})}
+                                />
+                            </div>
+                            
+                            <div className="mb-6">
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    Comments
+                                </label>
+                                <textarea
+                                    value={formData.comments || ''}
+                                    onChange={(e) => setFormData({...formData, comments: e.target.value})}
+                                    rows={3}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                                />
+                            </div>
+                            
+                            <div className="flex space-x-4">
+                                <button
+                                    onClick={handleSave}
+                                    disabled={loading}
+                                    className="bg-primary-500 hover:bg-primary-600 disabled:bg-gray-300 text-white px-6 py-2 rounded-md font-medium transition-colors"
+                                >
+                                    {loading ? 'Saving...' : 'Save Changes'}
+                                </button>
+                                <button
+                                    onClick={onClose}
+                                    disabled={loading}
+                                    className="bg-gray-300 hover:bg-gray-400 text-gray-700 px-6 py-2 rounded-md font-medium transition-colors"
+                                >
+                                    Cancel
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        // Main App Component
+        const App = () => {
+            const [currentPage, setCurrentPage] = useState('upcoming');
+            const [user, setUser] = useState(null);
+            const [loading, setLoading] = useState(true);
+            const [editingPadharamani, setEditingPadharamani] = useState(null);
+
+            useEffect(() => {
+                checkAuthStatus();
+            }, []);
+
+            const checkAuthStatus = async () => {
+                try {
+                    const userData = await api.get('/auth/me');
+                    setUser(userData);
+                } catch (err) {
+                    console.log('Not authenticated');
+                    window.location.href = '/auth/login';
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            const handleLogout = async () => {
+                try {
+                    await api.post('/auth/logout');
+                    localStorage.removeItem('token');
+                    window.location.href = '/auth/login';
+                } catch (err) {
+                    console.error('Logout error:', err);
+                    localStorage.removeItem('token');
+                    window.location.href = '/auth/login';
+                }
+            };
+
+            const handleEdit = (padharamani) => {
+                setEditingPadharamani(padharamani);
+            };
+
+            const handleSaveEdit = async (updatedPadharamani) => {
+                try {
+                    await api.put(`/padharamanis/${updatedPadharamani.id || updatedPadharamani.date}`, updatedPadharamani);
+                    window.location.reload();
+                } catch (err) {
+                    throw err;
+                }
+            };
+
+            const handleCancel = async (padharamani) => {
+                if (confirm('Are you sure you want to cancel this padharamani?')) {
+                    try {
+                        await api.put(`/padharamanis/${padharamani.id || padharamani.date}`, {
+                            ...padharamani,
+                            status: 'Canceled'
+                        });
+                        window.location.reload();
+                    } catch (err) {
+                        alert('Failed to cancel padharamani');
+                        console.error(err);
+                    }
+                }
+            };
+
+            if (loading) {
+                return (
+                    <div className="flex justify-center items-center min-h-screen">
+                        <div className="text-xl">Loading...</div>
+                    </div>
+                );
+            }
+
+            const renderCurrentPage = () => {
+                switch (currentPage) {
+                    case 'upcoming':
+                        return <UpcomingPage onEdit={handleEdit} onCancel={handleCancel} />;
+                    case 'archived':
+                        return <ArchivedPage />;
+                    case 'schedule':
+                        return <SchedulePage />;
+                    case 'add':
+                        return <AddPage />;
+                    default:
+                        return <UpcomingPage onEdit={handleEdit} onCancel={handleCancel} />;
+                }
+            };
+
+            return (
+                <div className="min-h-screen bg-gray-50">
+                    <Navigation 
+                        currentPage={currentPage}
+                        onPageChange={setCurrentPage}
+                        user={user}
+                        onLogout={handleLogout}
+                    />
+                    
+                    <main className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
+                        {renderCurrentPage()}
+                    </main>
+                    
+                    {editingPadharamani && (
+                        <EditModal
+                            padharamani={editingPadharamani}
+                            onClose={() => setEditingPadharamani(null)}
+                            onSave={handleSaveEdit}
+                        />
+                    )}
+                </div>
+            );
+        };
+
+        // Render the app
+        ReactDOM.render(<App />, document.getElementById('root'));
+    </script>
+</body>
+</html>

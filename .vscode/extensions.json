@@ -1,0 +1,16 @@
+{
+    "recommendations": [
+        "ms-vscode.vscode-typescript-next",
+        "ms-vscode.vscode-json",
+        "ms-python.python",
+        "ms-azuretools.vscode-docker",
+        "googlecloudtools.cloudcode",
+        "bradlc.vscode-tailwindcss",
+        "esbenp.prettier-vscode",
+        "ms-vscode.vscode-eslint",
+        "formulahendry.auto-rename-tag",
+        "christian-kohler.path-intellisense",
+        "ms-vscode.sublime-keybindings",
+        "usernamehw.errorlens"
+    ]
+}

@@ -1,0 +1,166 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Install Dependencies",
+            "type": "shell",
+            "command": "npm",
+            "args": ["install"],
+            "group": "build",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Start Development Server",
+            "type": "shell",
+            "command": "npm",
+            "args": ["run", "dev"],
+            "group": "build",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Build Docker Image (Main App)",
+            "type": "shell",
+            "command": "docker",
+            "args": ["build", "-t", "sant-padharamani", "."],
+            "group": "build",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Build Docker Image (Bot)",
+            "type": "shell",
+            "command": "docker",
+            "args": ["build", "-t", "sant-padharamani-bot", "./bot"],
+            "group": "build",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Run Docker Container (Main App)",
+            "type": "shell",
+            "command": "docker",
+            "args": ["run", "-p", "8080:8080", "--env-file", ".env", "sant-padharamani"],
+            "group": "build",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared"
+            },
+            "problemMatcher": [],
+            "dependsOn": "Build Docker Image (Main App)"
+        },
+        {
+            "label": "Deploy to Cloud Run (Main App)",
+            "type": "shell",
+            "command": "gcloud",
+            "args": ["builds", "submit", "--tag", "gcr.io/${env:GOOGLE_CLOUD_PROJECT}/sant-padharamani"],
+            "group": "build",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Deploy to Cloud Run (Bot)",
+            "type": "shell",
+            "command": "gcloud",
+            "args": ["builds", "submit", "--tag", "gcr.io/${env:GOOGLE_CLOUD_PROJECT}/sant-padharamani-bot", "./bot"],
+            "group": "build",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "View Cloud Run Logs (Main App)",
+            "type": "shell",
+            "command": "gcloud",
+            "args": ["logging", "read", "resource.type=cloud_run_revision AND resource.labels.service_name=sant-padharamani", "--limit=50"],
+            "group": "build",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "View Cloud Run Logs (Bot)",
+            "type": "shell",
+            "command": "gcloud",
+            "args": ["logging", "read", "resource.type=cloud_run_revision AND resource.labels.service_name=sant-padharamani-bot", "--limit=50"],
+            "group": "build",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Test Bot Locally",
+            "type": "shell",
+            "command": "python",
+            "args": ["bot.py"],
+            "group": "build",
+            "options": {
+                "cwd": "${workspaceFolder}/bot"
+            },
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Install Bot Dependencies",
+            "type": "shell",
+            "command": "pip",
+            "args": ["install", "-r", "requirements.txt"],
+            "group": "build",
+            "options": {
+                "cwd": "${workspaceFolder}/bot"
+            },
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared"
+            },
+            "problemMatcher": []
+        }
+    ]
+}
