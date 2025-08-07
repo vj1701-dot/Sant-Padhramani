@@ -81,8 +81,7 @@ enable_apis() {
         "secretmanager.googleapis.com"
         "cloudscheduler.googleapis.com"
         "sheets.googleapis.com"
-        "calendar-json.googleapis.com"
-        "oauth2.googleapis.com"
+        "calendar.googleapis.com"
         "containerregistry.googleapis.com"
     )
     

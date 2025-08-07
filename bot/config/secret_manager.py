@@ -28,11 +28,11 @@ class SecretManager:
         Returns:
             The secret value as string
         """
-        # For local development, try environment variable first
-        if os.getenv('ENVIRONMENT') == 'development':
-            env_value = os.getenv(secret_name.upper())
-            if env_value:
-                return env_value
+        # First check environment variables (for simple deployment or local dev)
+        env_value = os.getenv(secret_name.upper().replace('-', '_'))
+        if env_value:
+            logger.info(f"Using environment variable for {secret_name}")
+            return env_value
         
         # Check cache first
         cache_key = f"{secret_name}:{version}"
@@ -92,13 +92,31 @@ class SecretManager:
             Service account credentials as dictionary
         """
         try:
+            # Check for base64-encoded credentials in environment variable first
+            if os.getenv('GOOGLE_SERVICE_ACCOUNT_CREDENTIALS'):
+                try:
+                    import base64
+                    decoded = base64.b64decode(os.getenv('GOOGLE_SERVICE_ACCOUNT_CREDENTIALS')).decode()
+                    credentials = json.loads(decoded)
+                    logger.info('Using base64-encoded service account credentials from environment')
+                    return credentials
+                except Exception as decode_error:
+                    # If base64 decode fails, try as direct JSON
+                    try:
+                        credentials = json.loads(os.getenv('GOOGLE_SERVICE_ACCOUNT_CREDENTIALS'))
+                        logger.info('Using direct JSON service account credentials from environment')
+                        return credentials
+                    except Exception as json_error:
+                        logger.error(f"Failed to parse service account credentials from environment: {json_error}")
+
+            # Try Secret Manager
             credentials_json = self.get_secret('google-service-account-credentials')
             return json.loads(credentials_json)
         except Exception as error:
             logger.error(f"Failed to get service account credentials: {error}")
             
             # For local development, try the GOOGLE_APPLICATION_CREDENTIALS file
-            if os.getenv('ENVIRONMENT') == 'development' and os.getenv('GOOGLE_APPLICATION_CREDENTIALS'):
+            if os.getenv('GOOGLE_APPLICATION_CREDENTIALS') and os.getenv('GOOGLE_APPLICATION_CREDENTIALS').endswith('.json'):
                 try:
                     with open(os.getenv('GOOGLE_APPLICATION_CREDENTIALS'), 'r') as f:
                         return json.load(f)

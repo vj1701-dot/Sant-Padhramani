@@ -15,12 +15,11 @@ class SecretManager {
      * @returns {Promise<string>} The secret value
      */
     async getSecret(secretName, version = 'latest') {
-        // For local development, try environment variable first
-        if (process.env.NODE_ENV === 'development') {
-            const envValue = process.env[secretName.toUpperCase()];
-            if (envValue) {
-                return envValue;
-            }
+        // First check environment variables (for simple deployment or local dev)
+        const envValue = process.env[secretName.toUpperCase()];
+        if (envValue) {
+            console.log(`Using environment variable for ${secretName}`);
+            return envValue;
         }
 
         // Check cache first
@@ -82,13 +81,33 @@ class SecretManager {
      */
     async getServiceAccountCredentials() {
         try {
+            // Check for base64-encoded credentials in environment variable first
+            if (process.env.GOOGLE_SERVICE_ACCOUNT_CREDENTIALS) {
+                try {
+                    const decoded = Buffer.from(process.env.GOOGLE_SERVICE_ACCOUNT_CREDENTIALS, 'base64').toString();
+                    const credentials = JSON.parse(decoded);
+                    console.log('Using base64-encoded service account credentials from environment');
+                    return credentials;
+                } catch (decodeError) {
+                    // If base64 decode fails, try as direct JSON
+                    try {
+                        const credentials = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_CREDENTIALS);
+                        console.log('Using direct JSON service account credentials from environment');
+                        return credentials;
+                    } catch (jsonError) {
+                        console.error('Failed to parse service account credentials from environment:', jsonError.message);
+                    }
+                }
+            }
+
+            // Try Secret Manager
             const credentialsJson = await this.getSecret('google-service-account-credentials');
             return JSON.parse(credentialsJson);
         } catch (error) {
             console.error('Failed to get service account credentials:', error.message);
             
             // For local development, try the GOOGLE_APPLICATION_CREDENTIALS file
-            if (process.env.NODE_ENV === 'development' && process.env.GOOGLE_APPLICATION_CREDENTIALS) {
+            if (process.env.GOOGLE_APPLICATION_CREDENTIALS && process.env.GOOGLE_APPLICATION_CREDENTIALS.endsWith('.json')) {
                 const fs = require('fs');
                 try {
                     const credentialsFile = fs.readFileSync(process.env.GOOGLE_APPLICATION_CREDENTIALS, 'utf8');

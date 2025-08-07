@@ -64,7 +64,7 @@ gcloud config set project "$PROJECT_ID"
 
 # Enable APIs
 print_status "Enabling required APIs..."
-gcloud services enable run.googleapis.com cloudbuild.googleapis.com secretmanager.googleapis.com cloudscheduler.googleapis.com sheets.googleapis.com calendar-json.googleapis.com oauth2.googleapis.com containerregistry.googleapis.com
+gcloud services enable run.googleapis.com cloudbuild.googleapis.com secretmanager.googleapis.com cloudscheduler.googleapis.com sheets.googleapis.com calendar.googleapis.com containerregistry.googleapis.com
 
 # Create secrets
 print_status "Creating secrets in Secret Manager..."
