@@ -1,6 +1,13 @@
 # Use Node.js 18 LTS as base image
 FROM node:18-slim
 
+# Install system dependencies needed for bcrypt and other native modules
+RUN apt-get update && apt-get install -y \
+    python3 \
+    make \
+    g++ \
+    && rm -rf /var/lib/apt/lists/*
+
 # Set working directory
 WORKDIR /app
 
