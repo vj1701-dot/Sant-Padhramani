@@ -70,6 +70,15 @@ class UserManagementService {
         console.log('   ⚠️  Please change password after first login!');
     }
 
+    async ensureDefaultAdmin() {
+        // Check if admin user exists in memory
+        const adminExists = this.users.some(u => u.email === 'admin@santpadharamani.com');
+        if (!adminExists) {
+            console.log('⚠️ Admin user not found in memory, recreating...');
+            await this.createDefaultAdmin();
+        }
+    }
+
     async createUser(email, password, name, isAdmin = false) {
         // Check if user already exists
         const existingUser = this.users.find(u => u.email === email);
@@ -97,6 +106,9 @@ class UserManagementService {
     }
 
     async authenticateUser(email, password) {
+        // Always ensure admin user exists (Cloud Run ephemeral storage fix)
+        await this.ensureDefaultAdmin();
+        
         const user = this.users.find(u => u.email === email);
         if (!user) {
             throw new Error('Invalid credentials');
