@@ -1,7 +1,6 @@
 const { GoogleSpreadsheet } = require('google-spreadsheet');
 const { JWT } = require('google-auth-library');
-const fs = require('fs').promises;
-const path = require('path');
+const secretManager = require('../config/secretManager');
 
 class GoogleSheetsService {
     constructor() {
@@ -17,23 +16,12 @@ class GoogleSheetsService {
     async initialize() {
         try {
             // Load service account credentials
-            const credentialsPath = process.env.GOOGLE_SERVICE_ACCOUNT_PATH || 
-                                  path.join(__dirname, '../credentials/service-account-key.json');
-            
-            let credentials;
-            try {
-                const credData = await fs.readFile(credentialsPath, 'utf8');
-                credentials = JSON.parse(credData);
-            } catch (error) {
-                console.log('Google credentials not found, falling back to local storage');
-                // Fallback to local JSON storage if credentials not available
-                return this.initializeLocal();
-            }
+            const credentials = await secretManager.getServiceAccountCredentials();
 
             const spreadsheetId = process.env.GOOGLE_SPREADSHEET_ID;
             if (!spreadsheetId) {
-                console.log('Google Spreadsheet ID not provided, falling back to local storage');
-                return this.initializeLocal();
+                console.error('Google Spreadsheet ID not provided.');
+                throw new Error('Google Spreadsheet ID not provided.');
             }
 
             // Initialize JWT auth
@@ -66,21 +54,11 @@ class GoogleSheetsService {
             
         } catch (error) {
             console.error('Failed to initialize Google Sheets:', error.message);
-            console.log('Falling back to local storage');
-            return this.initializeLocal();
+            throw error;
         }
     }
 
-    /**
-     * Fallback to local JSON storage
-     */
-    async initializeLocal() {
-        const LocalSheetsService = require('./sheetsService');
-        this.localService = new LocalSheetsService();
-        await this.localService.initialize();
-        this.initialized = true;
-        console.log('Using local file storage instead of Google Sheets');
-    }
+    
 
     /**
      * Get or create a sheet with headers
@@ -109,9 +87,6 @@ class GoogleSheetsService {
      * Schedule a padharamani request (incomplete - goes to Requests sheet)
      */
     async schedulePadharamani(padharamaniData) {
-        if (this.localService) {
-            return this.localService.schedulePadharamani(padharamaniData);
-        }
 
         try {
             const requestData = {
@@ -147,9 +122,6 @@ class GoogleSheetsService {
      * Add complete padharamani (goes to Assigned_Padharamani sheet)
      */
     async addPadharamani(padharamaniData) {
-        if (this.localService) {
-            return this.localService.addPadharamani(padharamaniData);
-        }
 
         try {
             const assignedData = {
@@ -187,11 +159,6 @@ class GoogleSheetsService {
      * Get all padharamani requests (from Requests sheet)
      */
     async getScheduledPadharamanis() {
-        if (this.localService) {
-            return this.localService.getAllPadharamanis().then(data => 
-                data.filter(p => p.status === 'Scheduled' || p.status === 'Pending')
-            );
-        }
 
         try {
             const rows = await this.requestsSheet.getRows();
@@ -206,9 +173,6 @@ class GoogleSheetsService {
      * Get upcoming padharamanis (from Assigned_Padharamani sheet)
      */
     async getUpcomingPadharamanis() {
-        if (this.localService) {
-            return this.localService.getUpcomingPadharamanis();
-        }
 
         try {
             const rows = await this.padharamanisSheet.getRows();
@@ -231,9 +195,6 @@ class GoogleSheetsService {
      * Get archived padharamanis (from Assigned_Padharamani sheet)
      */
     async getArchivedPadharamanis() {
-        if (this.localService) {
-            return this.localService.getArchivedPadharamanis();
-        }
 
         try {
             const rows = await this.padharamanisSheet.getRows();
@@ -256,9 +217,6 @@ class GoogleSheetsService {
      * Update padharamani
      */
     async updatePadharamani(id, updatedData) {
-        if (this.localService) {
-            return this.localService.updatePadharamani(id, updatedData);
-        }
 
         try {
             // Check if it's in requests first
