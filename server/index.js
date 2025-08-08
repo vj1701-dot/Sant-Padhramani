@@ -3,6 +3,7 @@ const cors = require('cors');
 const helmet = require('helmet');
 const cookieParser = require('cookie-parser');
 const rateLimit = require('express-rate-limit');
+const jwt = require('jsonwebtoken');
 const path = require('path');
 require('dotenv').config();
 const crypto = require('crypto');
@@ -21,7 +22,7 @@ const GoogleSheetsService = require('./services/googleSheetsService');
 const UserManagementService = require('./services/userManagementService');
 
 const app = express();
-app.set('trust proxy', 1);
+
 const PORT = process.env.PORT || 8080;
 
 // Security middleware
@@ -46,7 +47,20 @@ app.use(helmet({
 const limiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
     max: 100, // Limit each IP to 100 requests per windowMs
-    message: 'Too many requests from this IP, please try again later.'
+    message: 'Too many requests from this IP, please try again later.',
+    keyGenerator: (req, res) => {
+        if (req.headers.authorization && req.headers.authorization.startsWith('Bearer ')) {
+            try {
+                const token = req.headers.authorization.split(' ')[1];
+                const decoded = jwt.verify(token, process.env.JWT_SECRET);
+                return decoded.userId; // Use user ID from JWT as key
+            } catch (error) {
+                // Fallback to IP if JWT is invalid
+                return req.ip;
+            }
+        }
+        return req.ip; // Fallback to IP if no JWT
+    }
 });
 app.use('/api', limiter);
 
