@@ -368,7 +368,7 @@
                             console.log('🔐 Unauthorized, removing token and redirecting to login');
                             localStorage.removeItem('token');
                             window.location.href = '/auth/login-page';
-                            return;
+                            throw new Error('Authentication required');
                         }
                         throw new Error(`HTTP error! status: ${response.status}`);
                     }
@@ -404,7 +404,7 @@
                             console.log('🔐 Unauthorized, removing token and redirecting to login');
                             localStorage.removeItem('token');
                             window.location.href = '/auth/login-page';
-                            return;
+                            throw new Error('Authentication required');
                         }
                         throw new Error(`HTTP error! status: ${response.status}`);
                     }
@@ -440,7 +440,7 @@
                             console.log('🔐 Unauthorized, removing token and redirecting to login');
                             localStorage.removeItem('token');
                             window.location.href = '/auth/login-page';
-                            return;
+                            throw new Error('Authentication required');
                         }
                         throw new Error(`HTTP error! status: ${response.status}`);
                     }
@@ -804,11 +804,16 @@ Comments: ${padharamani.comments || 'None'}`;
             const loadUpcomingPadharamanis = async () => {
                 try {
                     setLoading(true);
+                    setError(null); // Clear previous errors
                     const data = await api.get('/padharamanis/upcoming');
                     setPadharamanis(data);
                 } catch (err) {
+                    console.error('❌ Failed to load upcoming padharamanis:', err);
+                    if (err.message === 'Authentication required') {
+                        // Don't set error state, let redirect handle authentication
+                        return;
+                    }
                     setError('Failed to load upcoming padharamanis');
-                    console.error(err);
                 } finally {
                     setLoading(false);
                 }
@@ -905,11 +910,16 @@ Comments: ${padharamani.comments || 'None'}`;
             const loadArchivedPadharamanis = async () => {
                 try {
                     setLoading(true);
+                    setError(null); // Clear previous errors
                     const data = await api.get('/padharamanis/archived');
                     setPadharamanis(data);
                 } catch (err) {
+                    console.error('❌ Failed to load archived padharamanis:', err);
+                    if (err.message === 'Authentication required') {
+                        // Don't set error state, let redirect handle authentication
+                        return;
+                    }
                     setError('Failed to load archived padharamanis');
-                    console.error(err);
                 } finally {
                     setLoading(false);
                 }
@@ -1792,11 +1802,16 @@ Comments: ${padharamani.comments || 'None'}`;
             const loadScheduledRequests = async () => {
                 try {
                     setLoading(true);
+                    setError(null); // Clear previous errors
                     const data = await api.get('/padharamanis/scheduled');
                     setScheduledRequests(data);
                 } catch (err) {
+                    console.error('❌ Failed to load scheduled requests:', err);
+                    if (err.message === 'Authentication required') {
+                        // Don't set error state, let redirect handle authentication
+                        return;
+                    }
                     setError('Failed to load scheduled requests');
-                    console.error(err);
                 } finally {
                     setLoading(false);
                 }
