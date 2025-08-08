@@ -118,9 +118,9 @@ async function startServer() {
         // global.sheetsService = sheetsService;
         
         // Initialize User Management service
-        const userService = new UserManagementService();
-        await userService.initialize();
-        global.userService = userService;
+        // const userService = new UserManagementService();
+        // await userService.initialize();
+        // global.userService = userService;
         
         console.log('Starting server...');
         app.listen(PORT, '0.0.0.0', () => {
