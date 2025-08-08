@@ -27,6 +27,7 @@ server/scripts/
 *service-account*
 *oauth*
 *client-secret*
+n8n-projects-*.json
 
 # Logs
 logs/

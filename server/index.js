@@ -112,15 +112,15 @@ async function startServer() {
     try {
         console.log('Initializing services...');
         
-        // Initialize Google Sheets service
-        // const sheetsService = new GoogleSheetsService();
-        // await sheetsService.initialize();
-        // global.sheetsService = sheetsService;
+                // Initialize Google Sheets service
+        const sheetsService = new GoogleSheetsService();
+        await sheetsService.initialize();
+        global.sheetsService = sheetsService;
         
-        // Initialize User Management service
-        // const userService = new UserManagementService();
-        // await userService.initialize();
-        // global.userService = userService;
+                // Initialize User Management service
+        const userService = new UserManagementService();
+        await userService.initialize();
+        global.userService = userService;
         
         console.log('Starting server...');
         app.listen(PORT, '0.0.0.0', () => {
