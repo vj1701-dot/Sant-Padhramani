@@ -1,62 +1,44 @@
-const { SecretManagerServiceClient } = require('@google-cloud/secret-manager');
+// Simple environment variable manager - no Secret Manager needed
+// All secrets are provided via Cloud Run environment variables
 
 class SecretManager {
     constructor() {
-        this.client = new SecretManagerServiceClient();
-        this.projectId = process.env.GOOGLE_CLOUD_PROJECT || process.env.GOOGLE_CLOUD_PROJECT_ID;
-        if (!this.projectId) {
-            throw new Error('GOOGLE_CLOUD_PROJECT environment variable is not set. Unable to determine project ID for Secret Manager.');
-        }
-        console.log(`SecretManager initialized with projectId: ${this.projectId}`);
+        console.log('🔧 SecretManager initialized - using environment variables only');
         this.cache = new Map();
         this.cacheExpiry = 5 * 60 * 1000; // 5 minutes
     }
 
     /**
-     * Get a secret from Google Cloud Secret Manager or environment variable
+     * Get a secret from environment variables
      * @param {string} secretName - Name of the secret
-     * @param {string} version - Version of the secret (default: 'latest')
+     * @param {string} version - Version of the secret (ignored, for compatibility)
      * @returns {Promise<string>} The secret value
      */
     async getSecret(secretName, version = 'latest') {
-        // First check environment variables (for simple deployment or local dev)
-        const envValue = process.env[secretName.toUpperCase()];
-        if (envValue) {
-            console.log(`Using environment variable for ${secretName}`);
-            return envValue;
-        }
-
+        console.log(`🔍 Getting secret: ${secretName}`);
+        
         // Check cache first
         const cacheKey = `${secretName}:${version}`;
         const cached = this.cache.get(cacheKey);
         if (cached && (Date.now() - cached.timestamp) < this.cacheExpiry) {
+            console.log(`📋 Using cached value for ${secretName}`);
             return cached.value;
         }
 
-        try {
-            // Cloud Run environment - get from Secret Manager
-            const name = `projects/${this.projectId}/secrets/${secretName}/versions/${version}`;
-            const [version_response] = await this.client.accessSecretVersion({ name });
-            const secret = version_response.payload.data.toString();
-            
+        // Get from environment variables
+        const envValue = process.env[secretName.toUpperCase()] || process.env[secretName];
+        if (envValue) {
+            console.log(`✅ Found environment variable for ${secretName}`);
             // Cache the secret
             this.cache.set(cacheKey, {
-                value: secret,
+                value: envValue,
                 timestamp: Date.now()
             });
-            
-            return secret;
-        } catch (error) {
-            console.error(`Failed to retrieve secret ${secretName} for project ${this.projectId}:`, error.message);
-            
-            // Fallback to environment variable
-            const envValue = process.env[secretName.toUpperCase()];
-            if (envValue) {
-                return envValue;
-            }
-            
-            throw new Error(`Secret ${secretName} not found in Secret Manager or environment variables`);
+            return envValue;
         }
+        
+        console.error(`❌ Secret ${secretName} not found in environment variables`);
+        throw new Error(`Secret ${secretName} not found in environment variables`);
     }
 
     /**
@@ -84,44 +66,54 @@ class SecretManager {
      * @returns {Promise<Object>} Service account credentials object
      */
     async getServiceAccountCredentials() {
+        console.log('🔍 Getting Google service account credentials...');
+        
         try {
             // Check for base64-encoded credentials in environment variable first
             if (process.env.GOOGLE_SERVICE_ACCOUNT_CREDENTIALS) {
                 try {
                     const decoded = Buffer.from(process.env.GOOGLE_SERVICE_ACCOUNT_CREDENTIALS, 'base64').toString();
                     const credentials = JSON.parse(decoded);
-                    console.log('Using base64-encoded service account credentials from environment');
+                    console.log('✅ Using base64-encoded service account credentials from environment');
                     return credentials;
                 } catch (decodeError) {
                     // If base64 decode fails, try as direct JSON
                     try {
                         const credentials = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_CREDENTIALS);
-                        console.log('Using direct JSON service account credentials from environment');
+                        console.log('✅ Using direct JSON service account credentials from environment');
                         return credentials;
                     } catch (jsonError) {
-                        console.error('Failed to parse service account credentials from environment:', jsonError.message);
+                        console.error('❌ Failed to parse service account credentials from environment:', jsonError.message);
                     }
                 }
             }
 
-            // Try Secret Manager
-            const credentialsJson = await this.getSecret('google-service-account');
-            return JSON.parse(credentialsJson);
-        } catch (error) {
-            console.error('Failed to get service account credentials:', error.message);
+            // Try getting from environment variable as secret
+            try {
+                const credentialsJson = await this.getSecret('google-service-account-credentials');
+                const credentials = JSON.parse(credentialsJson);
+                console.log('✅ Using service account credentials from environment secret');
+                return credentials;
+            } catch (secretError) {
+                console.log('⚠️ No service account credentials found in secrets');
+            }
             
             // For local development, try the GOOGLE_APPLICATION_CREDENTIALS file
             if (process.env.GOOGLE_APPLICATION_CREDENTIALS && process.env.GOOGLE_APPLICATION_CREDENTIALS.endsWith('.json')) {
                 const fs = require('fs');
                 try {
                     const credentialsFile = fs.readFileSync(process.env.GOOGLE_APPLICATION_CREDENTIALS, 'utf8');
+                    console.log('✅ Using local credentials file');
                     return JSON.parse(credentialsFile);
                 } catch (fileError) {
-                    console.error('Failed to read local credentials file:', fileError.message);
+                    console.error('❌ Failed to read local credentials file:', fileError.message);
                 }
             }
             
-            throw new Error('Service account credentials not found');
+            throw new Error('Service account credentials not found in any location');
+        } catch (error) {
+            console.error('❌ Failed to get service account credentials:', error.message);
+            throw error;
         }
     }
 

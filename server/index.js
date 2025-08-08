@@ -139,58 +139,92 @@ app.use((error, req, res, next) => {
 // Initialize services and start server
 async function startServer() {
     try {
-        console.log('Initializing services...');
+        console.log('🚀 Starting Sant Padharamani server initialization...');
+        console.log('🔧 Environment variables check:', {
+            NODE_ENV: process.env.NODE_ENV,
+            PORT: process.env.PORT,
+            JWT_SECRET: process.env.JWT_SECRET ? 'Present' : 'Missing',
+            GOOGLE_SPREADSHEET_ID: process.env.GOOGLE_SPREADSHEET_ID ? 'Present' : 'Missing',
+            GOOGLE_SERVICE_ACCOUNT_CREDENTIALS: process.env.GOOGLE_SERVICE_ACCOUNT_CREDENTIALS ? 'Present' : 'Missing'
+        });
+        
+        console.log('🔧 Initializing services...');
         
         // Initialize Google Sheets service
-        console.log('Initializing GoogleSheetsService...');
-        const sheetsService = new GoogleSheetsService();
-        await sheetsService.initialize();
-        global.sheetsService = sheetsService;
-        console.log('GoogleSheetsService initialized.');
+        console.log('📊 Initializing GoogleSheetsService...');
+        try {
+            const sheetsService = new GoogleSheetsService();
+            await sheetsService.initialize();
+            global.sheetsService = sheetsService;
+            console.log('✅ GoogleSheetsService initialized successfully.');
+        } catch (error) {
+            console.error('❌ Failed to initialize GoogleSheetsService:', error.message);
+            throw error;
+        }
         
         // Initialize User Management service
-        console.log('Initializing UserManagementService...');
-        const userService = new UserManagementService();
-        await userService.initialize();
-        global.userService = userService;
-        console.log('UserManagementService initialized.');
+        console.log('👥 Initializing UserManagementService...');
+        try {
+            const userService = new UserManagementService();
+            await userService.initialize();
+            global.userService = userService;
+            console.log('✅ UserManagementService initialized successfully.');
+        } catch (error) {
+            console.error('❌ Failed to initialize UserManagementService:', error.message);
+            throw error;
+        }
         
-        console.log('Starting server...');
+        console.log('🌐 Starting HTTP server...');
         app.listen(PORT, '0.0.0.0', () => {
-            console.log(`Sant Padharamani Server running on port ${PORT}`);
-            console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
-            console.log(`Access the dashboard at: http://localhost:${PORT}`);
-            console.log(`Login page: http://localhost:${PORT}/auth/login-page`);
+            console.log('🎉 Sant Padharamani Server started successfully!');
+            console.log(`📍 Port: ${PORT}`);
+            console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
+            console.log(`🔗 Dashboard URL: http://localhost:${PORT}`);
+            console.log(`🔐 Login page: http://localhost:${PORT}/auth/login-page`);
+            console.log('✅ Server is ready to accept connections');
         });
     } catch (error) {
-        console.error('Failed to start server:', error);
+        console.error('❌ Failed to start server:', error);
+        console.error('🔍 Error details:', {
+            name: error.name,
+            message: error.message,
+            stack: error.stack
+        });
         process.exit(1);
     }
 }
 
 // Handle graceful shutdown
 process.on('SIGTERM', () => {
-    console.log('SIGTERM received, shutting down gracefully');
+    console.log('🛑 SIGTERM received, shutting down gracefully');
     process.exit(0);
 });
 
 process.on('SIGINT', () => {
-    console.log('SIGINT received, shutting down gracefully');
+    console.log('🛑 SIGINT received, shutting down gracefully');
     process.exit(0);
 });
 
 // Handle unhandled promise rejections
 process.on('unhandledRejection', (reason, promise) => {
-    console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+    console.error('⚠️ Unhandled Promise Rejection detected:');
+    console.error('📍 Promise:', promise);
+    console.error('💥 Reason:', reason);
     // Don't exit in production, just log
     if (process.env.NODE_ENV !== 'production') {
+        console.error('🚨 Exiting due to unhandled promise rejection (development mode)');
         process.exit(1);
     }
 });
 
 // Handle uncaught exceptions
 process.on('uncaughtException', (error) => {
-    console.error('Uncaught Exception:', error);
+    console.error('💥 Uncaught Exception detected:', error);
+    console.error('🔍 Error details:', {
+        name: error.name,
+        message: error.message,
+        stack: error.stack
+    });
     process.exit(1);
 });
 

@@ -19,7 +19,6 @@
   "author": "Sant Padharamani Team",
   "license": "MIT",
   "dependencies": {
-    "@google-cloud/secret-manager": "^6.1.0",
     "axios": "^1.6.2",
     "bcrypt": "^5.1.1",
     "cookie-parser": "^1.4.6",

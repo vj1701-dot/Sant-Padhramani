@@ -14,13 +14,21 @@ class GoogleSheetsService {
      * Initialize Google Sheets connection
      */
     async initialize() {
+        console.log('📊 GoogleSheetsService initialization started...');
         try {
             // Load service account credentials
+            console.log('🔐 Loading service account credentials...');
             const credentials = await secretManager.getServiceAccountCredentials();
+            console.log('✅ Service account credentials loaded successfully');
 
             const spreadsheetId = process.env.GOOGLE_SPREADSHEET_ID;
+            console.log('📋 Checking Google Spreadsheet ID...', { 
+                provided: !!spreadsheetId,
+                id: spreadsheetId ? `${spreadsheetId.substring(0, 10)}...` : 'Not provided'
+            });
+            
             if (!spreadsheetId) {
-                console.error('Google Spreadsheet ID not provided.');
+                console.error('❌ Google Spreadsheet ID not provided in environment variables');
                 throw new Error('Google Spreadsheet ID not provided.');
             }
 
