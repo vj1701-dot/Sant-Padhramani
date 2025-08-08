@@ -21,6 +21,7 @@ const GoogleSheetsService = require('./services/googleSheetsService');
 const UserManagementService = require('./services/userManagementService');
 
 const app = express();
+app.set('trust proxy', true);
 const PORT = process.env.PORT || 8080;
 
 // Security middleware
