@@ -60,7 +60,8 @@ const limiter = rateLimit({
             }
         }
         return req.ip; // Fallback to IP if no JWT
-    }
+    },
+    skipFailedRequests: true // Skip validation of trust proxy
 });
 app.use('/api', limiter);
 
