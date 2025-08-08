@@ -32,12 +32,19 @@ class GoogleSheetsService {
                 throw new Error('Google Spreadsheet ID not provided.');
             }
 
-            // Initialize JWT auth
-            const serviceAccountAuth = new JWT({
-                email: credentials.client_email,
-                key: credentials.private_key,
-                scopes: ['https://www.googleapis.com/auth/spreadsheets'],
-            });
+            // Initialize auth (JWT or default credentials)
+            let serviceAccountAuth;
+            if (credentials._isDefaultCredentials) {
+                console.log('🔐 Using Google Cloud default credentials for authentication');
+                serviceAccountAuth = credentials._authClient;
+            } else {
+                console.log('🔐 Using JWT authentication with service account');
+                serviceAccountAuth = new JWT({
+                    email: credentials.client_email,
+                    key: credentials.private_key,
+                    scopes: ['https://www.googleapis.com/auth/spreadsheets'],
+                });
+            }
 
             // Initialize Google Spreadsheet
             this.doc = new GoogleSpreadsheet(spreadsheetId, serviceAccountAuth);

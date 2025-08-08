@@ -97,6 +97,7 @@ class SecretManager {
                     return credentials;
                 } catch (fileError) {
                     console.error('❌ Failed to read credentials from GOOGLE_SERVICE_ACCOUNT_PATH:', fileError.message);
+                    console.log('🔄 Volume mount may not be configured, trying other methods...');
                 }
             }
 
@@ -152,6 +153,27 @@ class SecretManager {
                 } catch (fileError) {
                     console.error('❌ Failed to read local credentials file:', fileError.message);
                 }
+            }
+            
+            // Try using Google Cloud default credentials (metadata service)
+            try {
+                const { GoogleAuth } = require('google-auth-library');
+                const auth = new GoogleAuth({
+                    scopes: ['https://www.googleapis.com/auth/spreadsheets']
+                });
+                const client = await auth.getClient();
+                if (client && client.email) {
+                    console.log('✅ Using Google Cloud default credentials (metadata service)');
+                    // Return a compatible format
+                    return {
+                        client_email: client.email,
+                        // Note: We'll use the auth client directly in GoogleSheetsService
+                        _isDefaultCredentials: true,
+                        _authClient: client
+                    };
+                }
+            } catch (defaultError) {
+                console.log('❌ Google Cloud default credentials not available:', defaultError.message);
             }
             
             throw new Error('Service account credentials not found in any location');
