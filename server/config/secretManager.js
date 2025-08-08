@@ -105,7 +105,7 @@ class SecretManager {
             }
 
             // Try Secret Manager
-            const credentialsJson = await this.getSecret('google-service-account-credentials');
+            const credentialsJson = await this.getSecret('google-service-account');
             return JSON.parse(credentialsJson);
         } catch (error) {
             console.error('Failed to get service account credentials:', error.message);
