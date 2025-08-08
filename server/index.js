@@ -102,11 +102,14 @@ app.use('/api', apiRoutes);
 
 // Handle client-side routing (serve index.html for all non-API routes)
 app.get('*', (req, res) => {
-    // Don't serve index.html for API or auth routes
+    console.log(`Catch-all route hit for: ${req.path}`);
+    // Don't serve index.html for API routes
     if (req.path.startsWith('/api')) {
+        console.log(`Returning 404 for API route: ${req.path}`);
         return res.status(404).json({ error: 'Not found' });
     }
     
+    console.log(`Serving index.html for: ${req.path}`);
     res.sendFile(path.join(__dirname, '../client/index.html'));
 });
 
