@@ -796,26 +796,47 @@ Comments: ${padharamani.comments || 'None'}`;
             const [padharamanis, setPadharamanis] = useState([]);
             const [loading, setLoading] = useState(true);
             const [error, setError] = useState(null);
+            const [isLoadingRef, setIsLoadingRef] = useState(false);
 
             useEffect(() => {
+                console.log('🎯 UpcomingPage useEffect triggered, checking auth status...');
+                // Only load data if we have a valid token
+                const token = localStorage.getItem('token');
+                if (!token) {
+                    console.log('⚠️ No auth token found, redirecting to login...');
+                    window.location.href = '/auth/login-page';
+                    return;
+                }
+                console.log('✅ Auth token found, loading data...');
                 loadUpcomingPadharamanis();
             }, []);
 
             const loadUpcomingPadharamanis = async () => {
+                // Prevent multiple simultaneous API calls
+                if (isLoadingRef) {
+                    console.log('⚠️ API call already in progress, skipping...');
+                    return;
+                }
+                
                 try {
+                    setIsLoadingRef(true);
                     setLoading(true);
                     setError(null); // Clear previous errors
+                    console.log('🔄 Making API call to /padharamanis/upcoming');
                     const data = await api.get('/padharamanis/upcoming');
+                    console.log('✅ API call successful, setting data:', data?.length, 'items');
                     setPadharamanis(data);
                 } catch (err) {
                     console.error('❌ Failed to load upcoming padharamanis:', err);
                     if (err.message === 'Authentication required') {
+                        console.log('🔐 Authentication required, redirecting...');
                         // Don't set error state, let redirect handle authentication
                         return;
                     }
                     setError('Failed to load upcoming padharamanis');
                 } finally {
                     setLoading(false);
+                    setIsLoadingRef(false);
                 }
             };
 
