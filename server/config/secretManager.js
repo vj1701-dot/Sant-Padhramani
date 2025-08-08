@@ -3,7 +3,10 @@ const { SecretManagerServiceClient } = require('@google-cloud/secret-manager');
 class SecretManager {
     constructor() {
         this.client = new SecretManagerServiceClient();
-        this.projectId = process.env.GOOGLE_CLOUD_PROJECT_ID;
+        this.projectId = process.env.GOOGLE_CLOUD_PROJECT || process.env.GOOGLE_CLOUD_PROJECT_ID;
+        if (!this.projectId) {
+            throw new Error('GOOGLE_CLOUD_PROJECT environment variable is not set. Unable to determine project ID for Secret Manager.');
+        }
         console.log(`SecretManager initialized with projectId: ${this.projectId}`);
         this.cache = new Map();
         this.cacheExpiry = 5 * 60 * 1000; // 5 minutes
