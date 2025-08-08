@@ -1,7 +1,7 @@
 {
   "name": "sant-padharamani",
   "version": "1.0.0",
-  "description": "Secure web dashboard to manage padharamani (visits) for devotees",
+  "description": "Modern web dashboard to manage padharamani services with JSON storage and cloud backup",
   "main": "server/index.js",
   "scripts": {
     "start": "node server/index.js",
@@ -12,9 +12,11 @@
   "keywords": [
     "padharamani",
     "dashboard",
-    "google-sheets",
+    "json-storage",
+    "cloud-backup",
     "telegram-miniapp",
-    "telegram-bot"
+    "telegram-bot",
+    "pwa"
   ],
   "author": "Sant Padharamani Team",
   "license": "MIT",
