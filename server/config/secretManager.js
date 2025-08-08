@@ -4,6 +4,7 @@ class SecretManager {
     constructor() {
         this.client = new SecretManagerServiceClient();
         this.projectId = process.env.GOOGLE_CLOUD_PROJECT_ID;
+        console.log(`SecretManager initialized with projectId: ${this.projectId}`);
         this.cache = new Map();
         this.cacheExpiry = 5 * 60 * 1000; // 5 minutes
     }
@@ -43,7 +44,7 @@ class SecretManager {
             
             return secret;
         } catch (error) {
-            console.error(`Failed to retrieve secret ${secretName}:`, error.message);
+            console.error(`Failed to retrieve secret ${secretName} for project ${this.projectId}:`, error.message);
             
             // Fallback to environment variable
             const envValue = process.env[secretName.toUpperCase()];
