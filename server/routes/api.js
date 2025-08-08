@@ -1,12 +1,12 @@
 const express = require('express');
 const { requireAuth } = require('../middleware/auth');
 
-// Use global sheets service initialized in server/index.js
-const getSheetsService = () => {
-    if (!global.sheetsService) {
-        throw new Error('Sheets service not initialized');
+// Use global JSON storage service initialized in server/index.js
+const getJsonStorage = () => {
+    if (!global.jsonStorage) {
+        throw new Error('JSON storage service not initialized');
     }
-    return global.sheetsService;
+    return global.jsonStorage;
 };
 
 const router = express.Router();
@@ -41,8 +41,8 @@ router.post('/padharamanis/schedule', async (req, res) => {
             });
         }
 
-        // Add to requests sheet
-        const result = await getSheetsService().schedulePadharamani(padharamaniData);
+        // Add to JSON storage
+        const result = await getJsonStorage().schedulePadharamani(padharamaniData);
 
         res.status(201).json(result);
     } catch (error) {
@@ -63,7 +63,7 @@ router.use(requireAuth);
  */
 router.get('/padharamanis/upcoming', async (req, res) => {
     try {
-        const padharamanis = await getSheetsService().getUpcomingPadharamanis();
+        const padharamanis = await getJsonStorage().getUpcomingPadharamanis();
         res.json(padharamanis);
     } catch (error) {
         console.error('Error fetching upcoming padharamanis:', error.message);
@@ -77,7 +77,7 @@ router.get('/padharamanis/upcoming', async (req, res) => {
  */
 router.get('/padharamanis/archived', async (req, res) => {
     try {
-        const padharamanis = await getSheetsService().getArchivedPadharamanis();
+        const padharamanis = await getJsonStorage().getArchivedPadharamanis();
         res.json(padharamanis);
     } catch (error) {
         console.error('Error fetching archived padharamanis:', error.message);
@@ -91,7 +91,7 @@ router.get('/padharamanis/archived', async (req, res) => {
  */
 router.get('/padharamanis/scheduled', async (req, res) => {
     try {
-        const scheduled = await getSheetsService().getScheduledPadharamanis();
+        const scheduled = await getJsonStorage().getScheduledPadharamanis();
         res.json(scheduled);
     } catch (error) {
         console.error('Error fetching padharamani requests:', error.message);
@@ -152,8 +152,8 @@ router.post('/padharamanis', async (req, res) => {
             });
         }
 
-        // Add padharamani to assigned sheet
-        const result = await getSheetsService().addPadharamani(padharamaniData);
+        // Add padharamani to JSON storage
+        const result = await getJsonStorage().addPadharamani(padharamaniData);
 
         res.status(201).json(result);
     } catch (error) {
@@ -172,8 +172,8 @@ router.put('/padharamanis/:id', async (req, res) => {
         const padharamaniId = req.params.id;
         const padharamaniData = req.body;
 
-        // Update padharamani in Google Sheets
-        const result = await getSheetsService().updatePadharamani(padharamaniId, padharamaniData);
+        // Update padharamani in JSON storage
+        const result = await getJsonStorage().updatePadharamani(padharamaniId, padharamaniData);
 
         res.json(result);
     } catch (error) {

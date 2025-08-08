@@ -18,7 +18,9 @@ const authRoutes = require('./routes/auth');
 const apiRoutes = require('./routes/api');
 
 // Import services for initialization
-const GoogleSheetsService = require('./services/googleSheetsService');
+const JsonStorageService = require('./services/jsonStorageService');
+const BackupService = require('./services/backupService');
+const SchedulerService = require('./services/schedulerService');
 const UserManagementService = require('./services/userManagementService');
 
 const app = express();
@@ -108,9 +110,13 @@ app.get('/health', (req, res) => {
     });
 });
 
+// Import backup routes
+const backupRoutes = require('./routes/backup');
+
 // Routes
 app.use('/auth', authRoutes);
 app.use('/api', apiRoutes);
+app.use('/backup', backupRoutes);
 
 // Handle client-side routing (serve index.html for all non-API routes)
 app.get('*', (req, res) => {
@@ -144,22 +150,47 @@ async function startServer() {
             NODE_ENV: process.env.NODE_ENV,
             PORT: process.env.PORT,
             JWT_SECRET: process.env.JWT_SECRET ? 'Present' : 'Missing',
-            GOOGLE_SPREADSHEET_ID: process.env.GOOGLE_SPREADSHEET_ID ? 'Present' : 'Missing',
-            GOOGLE_SERVICE_ACCOUNT_CREDENTIALS: process.env.GOOGLE_SERVICE_ACCOUNT_CREDENTIALS ? 'Present' : 'Missing'
+            BACKUP_BUCKET_NAME: process.env.BACKUP_BUCKET_NAME || 'sant-padharamani-backups'
         });
         
         console.log('🔧 Initializing services...');
         
-        // Initialize Google Sheets service
-        console.log('📊 Initializing GoogleSheetsService...');
+        // Initialize JSON Storage service
+        console.log('📂 Initializing JsonStorageService...');
         try {
-            const sheetsService = new GoogleSheetsService();
-            await sheetsService.initialize();
-            global.sheetsService = sheetsService;
-            console.log('✅ GoogleSheetsService initialized successfully.');
+            const jsonStorage = new JsonStorageService();
+            await jsonStorage.initialize();
+            global.jsonStorage = jsonStorage;
+            console.log('✅ JsonStorageService initialized successfully.');
         } catch (error) {
-            console.error('❌ Failed to initialize GoogleSheetsService:', error.message);
+            console.error('❌ Failed to initialize JsonStorageService:', error.message);
             throw error;
+        }
+        
+        // Initialize Backup service
+        console.log('☁️ Initializing BackupService...');
+        try {
+            const backupService = new BackupService(global.jsonStorage);
+            await backupService.initialize();
+            global.backupService = backupService;
+            console.log('✅ BackupService initialized successfully.');
+        } catch (error) {
+            console.error('❌ Failed to initialize BackupService:', error.message);
+            // Don't throw error - backup service can work in local mode
+            console.log('⚠️ BackupService will work in local-only mode');
+        }
+        
+        // Initialize Scheduler service
+        console.log('⏰ Initializing SchedulerService...');
+        try {
+            const schedulerService = new SchedulerService(global.backupService);
+            await schedulerService.initialize();
+            global.schedulerService = schedulerService;
+            console.log('✅ SchedulerService initialized successfully.');
+        } catch (error) {
+            console.error('❌ Failed to initialize SchedulerService:', error.message);
+            // Don't throw error - continue without scheduled backups
+            console.log('⚠️ Scheduled backups will not be available');
         }
         
         // Initialize User Management service

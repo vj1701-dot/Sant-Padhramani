@@ -1,5 +1,4 @@
 const jwt = require('jsonwebtoken');
-const secretManager = require('../config/secretManager');
 
 let jwtSecret;
 
@@ -8,19 +7,14 @@ const getJwtSecret = async () => {
         return jwtSecret;
     }
     
-    try {
-        jwtSecret = await secretManager.getSecret('jwt-secret');
-        console.log('✅ JWT secret loaded from secret manager');
-        return jwtSecret;
-    } catch (error) {
-        console.log('⚠️ JWT secret not found in secret manager, falling back to environment variable');
-        // Fallback to environment variable or auto-generated
-        jwtSecret = process.env.JWT_SECRET;
-        if (!jwtSecret) {
-            throw new Error('JWT secret is not configured in Secret Manager or environment variables.');
-        }
-        return jwtSecret;
+    // Use environment variable (auto-generated in server/index.js if not provided)
+    jwtSecret = process.env.JWT_SECRET;
+    if (!jwtSecret) {
+        throw new Error('JWT secret is not configured in environment variables.');
     }
+    
+    console.log('✅ JWT secret loaded from environment variables');
+    return jwtSecret;
 };
 
 const requireAuth = async (req, res, next) => {
