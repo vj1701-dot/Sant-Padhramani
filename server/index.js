@@ -85,7 +85,19 @@ app.use((req, res, next) => {
 });
 
 // Serve static files from client directory
+app.use((req, res, next) => {
+    const staticPath = path.join(__dirname, '../client');
+    const requestedPath = req.path;
+    const fullPath = path.join(staticPath, requestedPath);
+    
+    // Check if the requested path is for a static file
+    if (requestedPath.includes('.') || requestedPath.endsWith('/')) { // Simple check for file extension or directory
+        console.log(`Static file request: ${requestedPath} -> ${fullPath}`);
+    }
+    next();
+});
 app.use(express.static(path.join(__dirname, '../client')));
+console.log('Serving static files from:', path.join(__dirname, '../client'));
 
 // Health check endpoint (before auth)
 app.get('/health', (req, res) => {
