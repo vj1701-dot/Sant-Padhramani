@@ -103,7 +103,7 @@ app.use('/api', apiRoutes);
 // Handle client-side routing (serve index.html for all non-API routes)
 app.get('*', (req, res) => {
     // Don't serve index.html for API or auth routes
-    if (req.path.startsWith('/api') || req.path.startsWith('/auth')) {
+    if (req.path.startsWith('/api')) {
         return res.status(404).json({ error: 'Not found' });
     }
     
