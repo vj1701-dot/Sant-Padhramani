@@ -1,62 +1,44 @@
 const jwt = require('jsonwebtoken');
-const userService = require('../services/userService');
+const secretManager = require('../config/secretManager');
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your-super-secret-jwt-key-change-this-in-production';
+let jwtSecret;
 
-/**
- * Middleware to verify JWT tokens
- */
-async function verifyToken(req, res, next) {
+const getJwtSecret = async () => {
+    if (jwtSecret) {
+        return jwtSecret;
+    }
+    jwtSecret = await secretManager.getSecret('jwt-secret');
+    if (!jwtSecret) {
+        throw new Error('JWT secret is not configured in Secret Manager.');
+    }
+    return jwtSecret;
+};
+
+const requireAuth = async (req, res, next) => {
+    const token = req.cookies.token || req.headers.authorization?.split(' ')[1];
+
+    if (!token) {
+        return res.status(401).json({ error: 'Authentication required. No token provided.' });
+    }
+
     try {
-        const token = req.headers.authorization?.replace('Bearer ', '') || 
-                     req.cookies?.token;
-
-        if (!token) {
-            return res.status(401).json({ error: 'No token provided' });
-        }
-
-        const decoded = jwt.verify(token, JWT_SECRET);
+        const secret = await getJwtSecret();
+        const decoded = jwt.verify(token, secret);
         
-        // Verify user still exists and is approved
-        const user = await userService.getUserById(decoded.id);
-        if (!user || !user.isApproved) {
-            return res.status(401).json({ error: 'Invalid token or user not approved' });
-        }
+        // The decoded payload can be attached to the request if needed
+        req.user = { email: decoded.email, name: decoded.name }; 
         
-        req.user = decoded;
         next();
     } catch (error) {
-        console.error('Token verification failed:', error.message);
-        return res.status(401).json({ error: 'Invalid token' });
-    }
-}
-
-/**
- * Combined middleware for authentication (user approval is now checked in verifyToken)
- */
-async function requireAuth(req, res, next) {
-    await verifyToken(req, res, next);
-}
-
-/**
- * Generate JWT token
- */
-function generateToken(user) {
-    return jwt.sign(
-        {
-            id: user.id,
-            email: user.email,
-            name: user.name
-        },
-        JWT_SECRET,
-        {
-            expiresIn: '24h'
+        console.error('Authentication error:', error.message);
+        if (error.name === 'TokenExpiredError') {
+            return res.status(401).json({ error: 'Token has expired.' });
         }
-    );
-}
-
-module.exports = {
-    verifyToken,
-    requireAuth,
-    generateToken
+        if (error.name === 'JsonWebTokenError') {
+            return res.status(401).json({ error: 'Invalid token.' });
+        }
+        return res.status(500).json({ error: 'Failed to authenticate token.' });
+    }
 };
+
+module.exports = { requireAuth, getJwtSecret };

@@ -13,7 +13,7 @@ if (!process.env.JWT_SECRET) {
     console.log('Auto-generated JWT_SECRET for this session');
 }
 
-// Import routes
+
 const authRoutes = require('./routes/auth');
 const apiRoutes = require('./routes/api');
 
@@ -52,9 +52,7 @@ app.use('/api', limiter);
 
 // CORS configuration
 const corsOptions = {
-    origin: process.env.NODE_ENV === 'production' 
-        ? [`https://${process.env.K_SERVICE}-${process.env.GOOGLE_CLOUD_PROJECT_ID}.a.run.app`]
-        : ['http://localhost:8080', 'http://127.0.0.1:8080'],
+    origin: '*',
     credentials: true,
     optionsSuccessStatus: 200
 };
@@ -84,6 +82,7 @@ app.get('/health', (req, res) => {
 });
 
 // Routes
+
 app.use('/auth', authRoutes);
 app.use('/api', apiRoutes);
 

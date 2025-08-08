@@ -286,54 +286,58 @@ else
     exit 1
 fi
 
-# Build and deploy bot
-print_status "Building and deploying Telegram bot..."
-if gcloud builds submit --tag "gcr.io/$PROJECT_ID/sant-padharamani-bot" ./bot --project="$PROJECT_ID"; then
-    print_success "✓ Telegram bot built"
-else
-    print_error "Failed to build Telegram bot"
-    exit 1
-fi
 
-if gcloud run deploy sant-padharamani-bot \
-    --image="gcr.io/$PROJECT_ID/sant-padharamani-bot" \
-    --platform=managed \
-    --region="$REGION" \
-    --no-allow-unauthenticated \
-    --port=8080 \
-    --memory=512Mi \
-    --cpu=1 \
-    --max-instances=5 \
-    --set-env-vars="GOOGLE_CLOUD_PROJECT_ID=$PROJECT_ID" \
-    --project="$PROJECT_ID" >/dev/null; then
+
+# Build and deploy bot
+# print_status "Building and deploying Telegram bot..."
+# if gcloud builds submit --tag "gcr.io/$PROJECT_ID/sant-padharamani-bot" ./bot --project="$PROJECT_ID"; then
+#     print_success "✓ Telegram bot built"
+# else
+#     print_error "Failed to build Telegram bot"
+#     exit 1
+# fi
+
+# if gcloud run deploy sant-padharamani-bot \
+#     --image="gcr.io/$PROJECT_ID/sant-padharamani-bot" \
+#     --platform=managed \
+#     --region="$REGION" \
+#     --no-allow-unauthenticated \
+#     --port=8080 \
+#     --memory=512Mi \
+#     --cpu=1 \
+#     --max-instances=5 \
+#     --set-env-vars="GOOGLE_CLOUD_PROJECT_ID=$PROJECT_ID" \
+#     --project="$PROJECT_ID" >/dev/null; then
     
-    BOT_URL=$(gcloud run services describe sant-padharamani-bot --region="$REGION" --format="value(status.url)" --project="$PROJECT_ID")
-    print_success "✓ Telegram bot deployed: $BOT_URL"
-else
-    print_error "Failed to deploy Telegram bot"
-    exit 1
-fi
+#     BOT_URL=$(gcloud run services describe sant-padharamani-bot --region="$REGION" --format="value(status.url)" --project="$PROJECT_ID")
+#     print_success "✓ Telegram bot deployed: $BOT_URL"
+# else
+#     print_error "Failed to deploy Telegram bot"
+#     exit 1
+# fi
+
 
 # Setup Cloud Scheduler
-print_status "Setting up Cloud Scheduler..."
-if gcloud scheduler jobs create http daily-padharamani-reminders \
-    --schedule="0 1 * * *" \
-    --uri="$BOT_URL/send-reminders" \
-    --http-method=POST \
-    --time-zone="America/New_York" \
-    --description="Daily padharamani reminders at 1 AM" \
-    --project="$PROJECT_ID" 2>/dev/null; then
-    print_success "✓ Cloud Scheduler job created"
-elif gcloud scheduler jobs update http daily-padharamani-reminders \
-    --schedule="0 1 * * *" \
-    --uri="$BOT_URL/send-reminders" \
-    --http-method=POST \
-    --time-zone="America/New_York" \
-    --project="$PROJECT_ID" 2>/dev/null; then
-    print_success "✓ Cloud Scheduler job updated"
-else
-    print_warning "Failed to setup Cloud Scheduler - you may need to create it manually"
-fi
+# print_status "Setting up Cloud Scheduler..."
+# if gcloud scheduler jobs create http daily-padharamani-reminders \
+#     --schedule="0 1 * * *" \
+#     --uri="$BOT_URL/send-reminders" \
+#     --http-method=POST \
+#     --time-zone="America/New_York" \
+#     --description="Daily padharamani reminders at 1 AM" \
+#     --project="$PROJECT_ID" 2>/dev/null; then
+#     print_success "✓ Cloud Scheduler job created"
+# elif gcloud scheduler jobs update http daily-padharamani-reminders \
+#     --schedule="0 1 * * *" \
+#     --uri="$BOT_URL/send-reminders" \
+#     --http-method=POST \
+#     --time-zone="America/New_York" \
+#     --project="$PROJECT_ID" 2>/dev/null; then
+#     print_success "✓ Cloud Scheduler job updated"
+# else
+#     print_warning "Failed to setup Cloud Scheduler - you may need to create it manually"
+# fi
+
 
 # Setup CI/CD if requested
 if [ "$SETUP_CONTINUOUS_DEPLOYMENT" = "true" ]; then

@@ -1,5 +1,6 @@
 const express = require('express');
 const { requireAuth } = require('../middleware/auth');
+
 // Use global sheets service initialized in server/index.js
 const getSheetsService = () => {
     if (!global.sheetsService) {
@@ -49,6 +50,9 @@ router.post('/padharamanis/schedule', async (req, res) => {
         res.status(500).json({ error: 'Failed to schedule padharamani' });
     }
 });
+
+
+
 
 // Apply authentication middleware to all other API routes
 router.use(requireAuth);
