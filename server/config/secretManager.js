@@ -25,16 +25,34 @@ class SecretManager {
             return cached.value;
         }
 
-        // Get from environment variables
+        // Get from environment variables (direct value or secret manager path)
         const envValue = process.env[secretName.toUpperCase()] || process.env[secretName];
         if (envValue) {
-            console.log(`✅ Found environment variable for ${secretName}`);
-            // Cache the secret
-            this.cache.set(cacheKey, {
-                value: envValue,
-                timestamp: Date.now()
-            });
-            return envValue;
+            // If it's a secret manager path, read from file system
+            if (envValue.startsWith('/secrets/')) {
+                try {
+                    const fs = require('fs');
+                    const secretValue = fs.readFileSync(envValue, 'utf8').trim();
+                    console.log(`✅ Found secret from mounted volume: ${envValue}`);
+                    // Cache the secret
+                    this.cache.set(cacheKey, {
+                        value: secretValue,
+                        timestamp: Date.now()
+                    });
+                    return secretValue;
+                } catch (error) {
+                    console.error(`❌ Failed to read secret from ${envValue}:`, error.message);
+                    throw new Error(`Failed to read secret from ${envValue}: ${error.message}`);
+                }
+            } else {
+                console.log(`✅ Found direct environment variable for ${secretName}`);
+                // Cache the secret
+                this.cache.set(cacheKey, {
+                    value: envValue,
+                    timestamp: Date.now()
+                });
+                return envValue;
+            }
         }
         
         console.error(`❌ Secret ${secretName} not found in environment variables`);
@@ -69,7 +87,20 @@ class SecretManager {
         console.log('🔍 Getting Google service account credentials...');
         
         try {
-            // Check for base64-encoded credentials in environment variable first
+            // Check for GOOGLE_SERVICE_ACCOUNT_PATH first (Cloud Run mounted volume)
+            if (process.env.GOOGLE_SERVICE_ACCOUNT_PATH) {
+                const fs = require('fs');
+                try {
+                    const credentialsFile = fs.readFileSync(process.env.GOOGLE_SERVICE_ACCOUNT_PATH, 'utf8');
+                    const credentials = JSON.parse(credentialsFile);
+                    console.log('✅ Using service account credentials from mounted volume:', process.env.GOOGLE_SERVICE_ACCOUNT_PATH);
+                    return credentials;
+                } catch (fileError) {
+                    console.error('❌ Failed to read credentials from GOOGLE_SERVICE_ACCOUNT_PATH:', fileError.message);
+                }
+            }
+
+            // Check for base64-encoded credentials in environment variable
             if (process.env.GOOGLE_SERVICE_ACCOUNT_CREDENTIALS) {
                 try {
                     const decoded = Buffer.from(process.env.GOOGLE_SERVICE_ACCOUNT_CREDENTIALS, 'base64').toString();
@@ -88,14 +119,27 @@ class SecretManager {
                 }
             }
 
-            // Try getting from environment variable as secret
+            // Try getting JWT_SECRET from secret manager (if it contains credentials)
             try {
-                const credentialsJson = await this.getSecret('google-service-account-credentials');
+                const jwtSecret = await this.getSecret('jwt-secret');
+                if (jwtSecret.startsWith('{')) {
+                    // If JWT secret looks like JSON, it might be credentials
+                    const credentials = JSON.parse(jwtSecret);
+                    console.log('✅ Using service account credentials from JWT secret');
+                    return credentials;
+                }
+            } catch (secretError) {
+                console.log('⚠️ JWT secret not found or not JSON credentials');
+            }
+
+            // Try getting from google-service-account secret
+            try {
+                const credentialsJson = await this.getSecret('google-service-account');
                 const credentials = JSON.parse(credentialsJson);
-                console.log('✅ Using service account credentials from environment secret');
+                console.log('✅ Using service account credentials from google-service-account secret');
                 return credentials;
             } catch (secretError) {
-                console.log('⚠️ No service account credentials found in secrets');
+                console.log('⚠️ No google-service-account secret found');
             }
             
             // For local development, try the GOOGLE_APPLICATION_CREDENTIALS file
@@ -103,7 +147,7 @@ class SecretManager {
                 const fs = require('fs');
                 try {
                     const credentialsFile = fs.readFileSync(process.env.GOOGLE_APPLICATION_CREDENTIALS, 'utf8');
-                    console.log('✅ Using local credentials file');
+                    console.log('✅ Using local GOOGLE_APPLICATION_CREDENTIALS file');
                     return JSON.parse(credentialsFile);
                 } catch (fileError) {
                     console.error('❌ Failed to read local credentials file:', fileError.message);
