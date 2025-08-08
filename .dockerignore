@@ -35,3 +35,6 @@ temp/
 
 # Development files
 Sant-Padhramani.code-workspace
+
+# Exclude bot directory from main build
+bot/
