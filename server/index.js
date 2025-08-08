@@ -113,9 +113,9 @@ async function startServer() {
         console.log('Initializing services...');
         
         // Initialize Google Sheets service
-        const sheetsService = new GoogleSheetsService();
-        await sheetsService.initialize();
-        global.sheetsService = sheetsService;
+        // const sheetsService = new GoogleSheetsService();
+        // await sheetsService.initialize();
+        // global.sheetsService = sheetsService;
         
         // Initialize User Management service
         const userService = new UserManagementService();
