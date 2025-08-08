@@ -22,6 +22,9 @@ const JsonStorageService = require('./services/jsonStorageService');
 const BackupService = require('./services/backupService');
 const SchedulerService = require('./services/schedulerService');
 const UserManagementService = require('./services/userManagementService');
+const SessionManagementService = require('./services/sessionManagementService');
+const SecurityMonitoringService = require('./services/securityMonitoringService');
+const EncryptionService = require('./services/encryptionService');
 
 const app = express();
 
@@ -69,7 +72,37 @@ app.use('/api', limiter);
 
 // CORS configuration
 const corsOptions = {
-    origin: '*',
+    origin: function (origin, callback) {
+        // Allow same origin requests (no origin header)
+        if (!origin) return callback(null, true);
+        
+        // Allow requests from Cloud Run domains and localhost for development
+        const allowedOrigins = [
+            /^https:\/\/sant-padhramani-.*\.run\.app$/,
+            /^https:\/\/sant-padhramani-.*\.a\.run\.app$/,
+            'http://localhost:8080',
+            'http://localhost:3000',
+            'http://127.0.0.1:8080'
+        ];
+        
+        const isAllowed = allowedOrigins.some(pattern => {
+            if (typeof pattern === 'string') {
+                return origin === pattern;
+            }
+            return pattern.test(origin);
+        });
+        
+        if (isAllowed) {
+            callback(null, true);
+        } else {
+            console.log(`🚨 CORS blocked request from: ${origin}`);
+            // Track CORS violation for security monitoring
+            if (global.securityService) {
+                global.securityService.trackCorsViolation(origin, 'unknown', 'unknown');
+            }
+            callback(new Error('Not allowed by CORS'));
+        }
+    },
     credentials: true,
     optionsSuccessStatus: 200
 };
@@ -80,9 +113,28 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(cookieParser());
 
-// Logging middleware
+// Force HTTPS redirect middleware (production only)
 app.use((req, res, next) => {
-    console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
+    if (process.env.NODE_ENV === 'production' && req.headers['x-forwarded-proto'] !== 'https') {
+        console.log(`🔒 Redirecting HTTP to HTTPS: ${req.url}`);
+        return res.redirect(301, `https://${req.get('Host')}${req.url}`);
+    }
+    next();
+});
+
+// Security logging middleware
+app.use(async (req, res, next) => {
+    const timestamp = new Date().toISOString();
+    const userAgent = req.get('User-Agent') || 'Unknown';
+    const ip = req.ip || req.connection.remoteAddress || 'Unknown';
+    
+    console.log(`${timestamp} - ${req.method} ${req.path} - IP: ${ip} - UA: ${userAgent.substring(0, 100)}`);
+    
+    // Track suspicious requests
+    if (global.securityService) {
+        await global.securityService.trackRequest(req);
+    }
+    
     next();
 });
 
@@ -155,6 +207,18 @@ async function startServer() {
         
         console.log('🔧 Initializing services...');
         
+        // Initialize Encryption service first (other services may depend on it)
+        console.log('🔐 Initializing EncryptionService...');
+        try {
+            const encryptionService = new EncryptionService();
+            await encryptionService.initialize();
+            global.encryptionService = encryptionService;
+            console.log('✅ EncryptionService initialized successfully.');
+        } catch (error) {
+            console.error('❌ Failed to initialize EncryptionService:', error.message);
+            throw error;
+        }
+        
         // Initialize JSON Storage service
         console.log('📂 Initializing JsonStorageService...');
         try {
@@ -202,6 +266,30 @@ async function startServer() {
             console.log('✅ UserManagementService initialized successfully.');
         } catch (error) {
             console.error('❌ Failed to initialize UserManagementService:', error.message);
+            throw error;
+        }
+
+        // Initialize Session Management service
+        console.log('🔐 Initializing SessionManagementService...');
+        try {
+            const sessionService = new SessionManagementService();
+            await sessionService.initialize();
+            global.sessionService = sessionService;
+            console.log('✅ SessionManagementService initialized successfully.');
+        } catch (error) {
+            console.error('❌ Failed to initialize SessionManagementService:', error.message);
+            throw error;
+        }
+
+        // Initialize Security Monitoring service
+        console.log('🛡️ Initializing SecurityMonitoringService...');
+        try {
+            const securityService = new SecurityMonitoringService();
+            await securityService.initialize();
+            global.securityService = securityService;
+            console.log('✅ SecurityMonitoringService initialized successfully.');
+        } catch (error) {
+            console.error('❌ Failed to initialize SecurityMonitoringService:', error.message);
             throw error;
         }
         

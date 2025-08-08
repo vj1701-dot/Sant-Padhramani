@@ -3,6 +3,8 @@ const fs = require('fs').promises;
 const path = require('path');
 
 const USERS_FILE_PATH = path.join(__dirname, '../data/users.json');
+const ACCOUNT_LOCKOUT_TIME = 15 * 60 * 1000; // 15 minutes
+const MAX_LOGIN_ATTEMPTS = 5;
 
 class UserManagementService {
     constructor() {
@@ -58,6 +60,9 @@ class UserManagementService {
             password: await bcrypt.hash('admin123456', 10),
             isApproved: true,
             isAdmin: true,
+            mustChangePassword: true, // Force password change on first login
+            failedLoginAttempts: 0,
+            accountLockedUntil: null,
             createdAt: new Date().toISOString()
         };
 
@@ -67,7 +72,7 @@ class UserManagementService {
         console.log('🔐 Default admin user created:');
         console.log('   Email: admin@santpadharamani.com');
         console.log('   Password: admin123456');
-        console.log('   ⚠️  Please change password after first login!');
+        console.log('   ⚠️  MUST change password on first login!');
     }
 
     async ensureDefaultAdmin() {
@@ -79,12 +84,34 @@ class UserManagementService {
         }
     }
 
+    validatePasswordComplexity(password) {
+        if (password.length < 8) {
+            throw new Error('Password must be at least 8 characters long');
+        }
+        if (!/[a-z]/.test(password)) {
+            throw new Error('Password must contain at least one lowercase letter');
+        }
+        if (!/[A-Z]/.test(password)) {
+            throw new Error('Password must contain at least one uppercase letter');
+        }
+        if (!/\d/.test(password)) {
+            throw new Error('Password must contain at least one number');
+        }
+        if (!/[!@#$%^&*(),.?":{}|<>]/.test(password)) {
+            throw new Error('Password must contain at least one special character');
+        }
+        return true;
+    }
+
     async createUser(email, password, name, isAdmin = false) {
         // Check if user already exists
         const existingUser = this.users.find(u => u.email === email);
         if (existingUser) {
             throw new Error('User already exists');
         }
+
+        // Validate password complexity
+        this.validatePasswordComplexity(password);
 
         const hashedPassword = await bcrypt.hash(password, 10);
         const newUser = {
@@ -94,6 +121,9 @@ class UserManagementService {
             password: hashedPassword,
             isApproved: false, // Require admin approval
             isAdmin,
+            mustChangePassword: false,
+            failedLoginAttempts: 0,
+            accountLockedUntil: null,
             createdAt: new Date().toISOString()
         };
 
@@ -109,19 +139,64 @@ class UserManagementService {
         // Always ensure admin user exists (Cloud Run ephemeral storage fix)
         await this.ensureDefaultAdmin();
         
-        const user = this.users.find(u => u.email === email);
-        if (!user) {
+        const userIndex = this.users.findIndex(u => u.email === email);
+        if (userIndex === -1) {
+            // Log failed attempt for non-existent user
+            console.log(`🚨 Authentication attempt for non-existent user: ${email}`);
             throw new Error('Invalid credentials');
         }
 
+        const user = this.users[userIndex];
+
+        // Check if account is locked
+        if (user.accountLockedUntil && new Date() < new Date(user.accountLockedUntil)) {
+            const unlockTime = new Date(user.accountLockedUntil).toLocaleString();
+            console.log(`🔒 Account locked for user: ${email} until ${unlockTime}`);
+            throw new Error(`Account locked until ${unlockTime}`);
+        }
+
+        // Reset failed attempts if lockout time has passed
+        if (user.accountLockedUntil && new Date() >= new Date(user.accountLockedUntil)) {
+            user.failedLoginAttempts = 0;
+            user.accountLockedUntil = null;
+        }
+
         if (!user.isApproved) {
+            console.log(`🚨 Authentication attempt for unapproved user: ${email}`);
             throw new Error('Account not approved');
         }
 
         const isValidPassword = await bcrypt.compare(password, user.password);
         if (!isValidPassword) {
+            // Increment failed login attempts
+            user.failedLoginAttempts = (user.failedLoginAttempts || 0) + 1;
+            
+            if (user.failedLoginAttempts >= MAX_LOGIN_ATTEMPTS) {
+                user.accountLockedUntil = new Date(Date.now() + ACCOUNT_LOCKOUT_TIME).toISOString();
+                console.log(`🔒 Account locked for user: ${email} after ${MAX_LOGIN_ATTEMPTS} failed attempts`);
+                
+                // Track account lockout for security monitoring
+                if (global.securityService) {
+                    await global.securityService.trackAccountLocked(email, 'unknown', user.failedLoginAttempts);
+                }
+                
+                await this.saveUsers();
+                throw new Error(`Account locked after ${MAX_LOGIN_ATTEMPTS} failed attempts. Try again in 15 minutes.`);
+            }
+            
+            await this.saveUsers();
+            console.log(`🚨 Invalid password for user: ${email}. Attempt ${user.failedLoginAttempts}/${MAX_LOGIN_ATTEMPTS}`);
             throw new Error('Invalid credentials');
         }
+
+        // Reset failed attempts on successful login
+        if (user.failedLoginAttempts > 0) {
+            user.failedLoginAttempts = 0;
+            user.accountLockedUntil = null;
+            await this.saveUsers();
+        }
+
+        console.log(`✅ Successful authentication for user: ${email}`);
 
         // Return user without password
         const { password: _, ...userWithoutPassword } = user;
@@ -182,6 +257,38 @@ class UserManagementService {
         await this.saveUsers();
 
         const { password: _, ...userWithoutPassword } = this.users[userIndex];
+        return userWithoutPassword;
+    }
+
+    async changePassword(email, currentPassword, newPassword) {
+        const userIndex = this.users.findIndex(u => u.email === email);
+        if (userIndex === -1) {
+            throw new Error('User not found');
+        }
+
+        const user = this.users[userIndex];
+
+        // If user must change password, skip current password check
+        if (!user.mustChangePassword) {
+            const isValidCurrentPassword = await bcrypt.compare(currentPassword, user.password);
+            if (!isValidCurrentPassword) {
+                console.log(`🚨 Invalid current password for user: ${email}`);
+                throw new Error('Current password is incorrect');
+            }
+        }
+
+        // Validate new password complexity
+        this.validatePasswordComplexity(newPassword);
+
+        const hashedNewPassword = await bcrypt.hash(newPassword, 10);
+        user.password = hashedNewPassword;
+        user.mustChangePassword = false;
+        user.updatedAt = new Date().toISOString();
+
+        await this.saveUsers();
+        console.log(`✅ Password changed successfully for user: ${email}`);
+
+        const { password: _, ...userWithoutPassword } = user;
         return userWithoutPassword;
     }
 
